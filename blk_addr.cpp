@@ -1,4 +1,6 @@
 #include "blk_addr.h"
+#include <stdlib.h>
+#include <stdio.h>
 
 blk_addr_handle::blk_addr_handle(struct nvm_geo const * g, struct addr_meta const * tm)
 	: geo_(g), tm_(tm), status_(0), format_()
@@ -40,6 +42,7 @@ void blk_addr_handle::init()
     // _l = {  4,   4,   4,   3   }
     //         ch   blk  pl   lun
     //         [0]  [1]  [2]  [3]
+    //printf("_l={%d,%d,%d,%d}\n", _l[0], _l[1],_l[2],_l[3]);
 
 	usize_[format_.ch] = geo_->nchannels;
     usize_[format_.lun] = tm_->nluns;
@@ -48,6 +51,7 @@ void blk_addr_handle::init()
     // usize_ = { 16,  16,  16,  8  }
     //            ch   blk  pl   lun
     //            [0]  [1]  [2]  [3]
+    //printf("usize_={%d,%d,%d,%d}\n", usize_[0], usize_[1],usize_[2],usize_[3]);
 
 	lmov_[0] = _l[1] + _l[2] + _l[3];
 	lmov_[1] = _l[2] + _l[3];
@@ -55,12 +59,14 @@ void blk_addr_handle::init()
 	lmov_[3] = 0;
     // lmov_ = { 11,  7,   3,   0 }
     //           [0]  [1]  [2]  [3]
+    //printf("lmov_={%d,%d,%d,%d}\n",lmov_[0],lmov_[1],lmov_[2],lmov_[3]);
 
 	for (int i = 0; i < 4; i++) {
 		mask_[i] = 1;
 		mask_[i] = (mask_[i] << _l[i]) - 1;
 		mask_[i] = mask_[i] << lmov_[i];
 	}
+    //printf("mask_={%d,%d,%d,%d}\n",mask_[0],mask_[1],mask_[2],mask_[3]);
     //                                                                           | nch=16  | nblk=16 | npl=16  | nlun=8
     // addr_buf = 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000   0|0 0 0   0|0 0 0   0|0 0 0   0|0 0 0
     //                                                                           |    ch   |   blk   |   pl    | lun |
@@ -91,6 +97,8 @@ int blk_addr_handle::MakeBlkAddr(size_t ch,
 	size_t blk, 
 	struct blk_addr* addr)
 {
+    addr->__buf = 0;
+
 	uint64_t tmp[4];
 	int ret = BlkAddrValid(ch, lun, pl, blk); ///Warning - @ch must be same as ext_meta.ch 
 	if(ret){
@@ -112,7 +120,7 @@ int blk_addr_handle::MakeBlkAddr(size_t ch,
     return RetOK;
 }
 
-ssize_t blk_addr_handle::GetFieldFromBlkAddr(struct blk_addr const *addr, int field, bool isidx)
+size_t blk_addr_handle::GetFieldFromBlkAddr(struct blk_addr const *addr, int field, bool isidx)
 {
 	int idx;
 	size_t value;
@@ -137,7 +145,7 @@ ssize_t blk_addr_handle::GetFieldFromBlkAddr(struct blk_addr const *addr, int fi
 	return value;
 }
 
-ssize_t blk_addr_handle::SetFieldBlkAddr(size_t val, int field, struct blk_addr *addr, bool isidx)
+size_t blk_addr_handle::SetFieldBlkAddr(size_t val, int field, struct blk_addr *addr, bool isidx)
 {
 	int idx;
 	size_t org_value;
@@ -239,14 +247,14 @@ size_t blk_addr_handle::BlkAddrDiff(const struct blk_addr *addr, int mode)
  */
 int blk_addr_handle::BlkAddrValid(size_t ch, size_t lun, size_t pl, size_t blk)
 {
-	if (ch != tm_->ch)
-		return -FieldCh;
-	if (!ocssd::InRange<size_t>(lun, tm_->stlun, tm_->stlun + tm_->nluns - 1))
-		return -FieldLun;
-	if (!ocssd::InRange<size_t>(pl, 0, geo_->nplanes - 1))
-		return -FieldPl;
-	if (!ocssd::InRange<size_t>(blk, 0, geo_->nblocks - 1))
-		return -FieldBlk;
+	//if (ch != tm_->ch)
+	//	return -FieldCh;
+	//if (!ocssd::InRange<size_t>(lun, tm_->stlun, tm_->stlun + tm_->nluns - 1))
+    //	return -FieldLun;
+	//if (!ocssd::InRange<size_t>(pl, 0, geo_->nplanes - 1))
+	//	return -FieldPl;
+	//if (!ocssd::InRange<size_t>(blk, 0, geo_->nblocks - 1))
+	//	return -FieldBlk;
 
 	return RetOK;
 }
@@ -339,24 +347,24 @@ struct addr_meta *am;
 blk_addr_handle **blk_addr_handlers_of_ch;	// blk_addr_handle[ 0, nch - 1 ] : each channel one handle
 size_t *meta_blk_end;  						// for channel(i): [0, meta_blk_end[i] - 1] is occupied by meta blocks.
 
-static size_t nchs;
+size_t nchs;
 
 void addr_init(const nvm_geo *g)
 {
 	size_t i;
 	nchs = g->nchannels;
-	am = (addr_meta *)calloc(sizeof(addr_meta), nchs);
+	am = (addr_meta *)malloc(sizeof(addr_meta) * nchs);
 	if (!am) {
 		//throw (oc_excpetion("not enough memory", false));
 	}
 
-	meta_blk_end = (size_t *)calloc(sizeof(size_t), nchs);
+	meta_blk_end = (size_t *)malloc(sizeof(size_t) * nchs);
 	if (!meta_blk_end) {
 		addr_release();
 		//throw (oc_excpetion("not enough memory", false)); 
 	}
 
-	blk_addr_handlers_of_ch = (blk_addr_handle **)calloc(sizeof(blk_addr_handle *), nchs);
+	blk_addr_handlers_of_ch = (blk_addr_handle **)malloc(sizeof(blk_addr_handle *) * nchs);
 	if (!blk_addr_handlers_of_ch) {
 		addr_release();
 		//throw (oc_excpetion("not enough memory", false));

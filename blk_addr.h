@@ -23,6 +23,30 @@ struct nvm_geo {
 	size_t tbytes;		///< Total number of bytes in geometry
 };
 
+struct nvm_addr {
+	union {
+		/**
+		 * Address packing and geometric accessors
+		 */
+		struct {
+			uint64_t blk	: 16;	///< Block address
+			uint64_t pg	: 16;	///< Page address
+			uint64_t sec	: 8;	///< Sector address
+			uint64_t pl	: 8;	///< Plane address
+			uint64_t lun	: 8;	///< LUN address
+			uint64_t ch	: 7;	///< Channel address
+			uint64_t rsvd	: 1;	///< Reserved
+		} g;
+
+		struct {
+			uint64_t line		: 63;	///< Address line
+			uint64_t is_cached	: 1;	///< Cache hint?
+		} c;
+
+		uint64_t ppa;				///< Address as ppa
+	};
+};
+
 //1 channel 1 ext_tree
 //for qemu:
 // @ch is fixed to 0
@@ -66,13 +90,15 @@ struct addr_meta { //fields for address-format
  * 			  BBT0  BBT1  BBT2  BBT3 		BBT0  BBT1  BBT2  BBT3
  */
 
+//#include <stdio.h>
 struct blk_addr{
 	uint64_t __buf;
-	struct blk_addr& operator = (const struct blk_addr& rhs)
-	{
-		this->__buf = rhs.__buf;
-		return *this;
-	}
+	//struct blk_addr& operator = (const struct blk_addr& rhs)
+	//{
+	//	this->__buf = rhs.__buf;
+    //    printf("this=%u\nrhs=%u\n",this->__buf,rhs.__buf);
+	//	return *this;
+	//}
 };
 
 class blk_addr_handle{ // a handle should attach to a tree.
@@ -92,14 +118,14 @@ public:
 		CalcOF = 7			//calculation: overflow/underflow occur
 	};
 	
-	struct blk_addr get_lowest()  { return lowest;  }
-	struct blk_addr get_highest() { return highest; }
-    size_t get_blk_nr() { return BlkAddrDiff(highest, 0); }
+	struct blk_addr get_lowest()  { return this->lowest; }
+	struct blk_addr get_highest() { return this->highest; }
+    size_t get_blk_nr() { return BlkAddrDiff( &(this->highest), 0) + 1; }
 	void convert_2_nvm_addr(struct blk_addr *blk_a, struct nvm_addr *nvm_a);
 
 	int MakeBlkAddr(size_t ch, size_t lun, size_t pl, size_t blk, struct blk_addr* addr);
-	ssize_t GetFieldFromBlkAddr(struct blk_addr const * addr, int field, bool isidx);
-	ssize_t SetFieldBlkAddr(size_t val, int field, struct blk_addr * addr, bool isidx);
+	size_t GetFieldFromBlkAddr(struct blk_addr const * addr, int field, bool isidx);
+    size_t SetFieldBlkAddr(size_t val, int field, struct blk_addr * addr, bool isidx);
 
 	/*
 	 * @blk_addr + @x 
@@ -135,6 +161,7 @@ public:
 	 */
 	int BlkAddrValid(size_t ch, size_t lun, size_t pl, size_t blk);
 
+    void PrBlkAddr(struct blk_addr *addr, bool pr_title, const char *prefix);
 private:
 
 	struct AddrFormat {
@@ -152,8 +179,6 @@ private:
 	void do_sub_or_add(size_t x, struct blk_addr* addr, int mode);
 	void do_sub(size_t* aos, size_t* v, struct blk_addr *addr);
 	void do_add(size_t* aos, size_t* v, struct blk_addr *addr);
-
-    void PrBlkAddr(struct blk_addr *addr, bool pr_title, const char *prefix)
 public:
 	struct nvm_geo const * geo_;
 private:
