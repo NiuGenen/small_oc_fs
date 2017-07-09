@@ -48,7 +48,7 @@ OcssdSuperBlock::OcssdSuperBlock(){
     if( need_format ){
         printf("Not Formated dev : %s\n", OC_DEV_PATH );
         exit(-1);
-        
+
         need_flush = 1;
 
         sb_meta.magic_num = SUPER_BLK_MAGIC_NUM;
@@ -168,19 +168,19 @@ OcssdSuperBlock::OcssdSuperBlock(){
     }
 
     file_name_blk_area_init(
-        geo,
+        dev, geo,
         sb_meta.fn_st_ch, sb_meta.fn_ed_ch,
         fn_st_blk, fn_blk_nr,
         nat_fn, sb_meta.fn_nat_max_size
     );
     file_meta_blk_area_init(
-        geo,
+        dev, geo,
         sb_meta.fm_st_ch, sb_meta.fm_ed_ch,
         fm_st_blk, fm_blk_nr,
         nat_fm, sb_meta.fm_nat_max_size
     );
     extent_blk_area_init(
-        geo,
+        dev, geo,
         sb_meta.ext_st_ch, sb_meta.ext_ed_ch,
         ext_st_blk, ext_blk_nr,
         nat_ext, sb_mate.ext_nat_max_size
