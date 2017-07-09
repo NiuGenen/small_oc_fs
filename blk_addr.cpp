@@ -343,9 +343,7 @@ void blk_addr_handle::PrBlkAddr(struct blk_addr *addr, bool pr_title, const char
 }
 
 ///global vars
-struct addr_meta *am;
 blk_addr_handle **blk_addr_handlers_of_ch;	// blk_addr_handle[ 0, nch - 1 ] : each channel one handle
-size_t *meta_blk_end;  						// for channel(i): [0, meta_blk_end[i] - 1] is occupied by meta blocks.
 
 size_t nchs;
 
@@ -353,6 +351,8 @@ void addr_init(const nvm_geo *g)
 {
 	size_t i;
 	nchs = g->nchannels;
+	
+	struct addr_meta *am;
 	am = (addr_meta *)malloc(sizeof(addr_meta) * nchs);
 	if (!am) {
 		//throw (oc_excpetion("not enough memory", false));
@@ -374,8 +374,6 @@ void addr_init(const nvm_geo *g)
 		am[i].ch = i;
 		am[i].nluns = g->nluns;
 		am[i].stlun = 0;
-
-		meta_blk_end[i] = 0;
 
 		blk_addr_handlers_of_ch[i] = new blk_addr_handle(g, am + i);
 	}
