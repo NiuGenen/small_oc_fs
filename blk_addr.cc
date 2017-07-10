@@ -1,6 +1,7 @@
 #include "blk_addr.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
 
 blk_addr_handle::blk_addr_handle(struct nvm_geo const * g, struct addr_meta const * tm)
 	: geo_(g), tm_(tm), status_(0), format_()
@@ -343,6 +344,7 @@ void blk_addr_handle::PrBlkAddr(struct blk_addr *addr, bool pr_title, const char
 }
 
 ///global vars
+struct addr_meta *am;
 blk_addr_handle **blk_addr_handlers_of_ch;	// blk_addr_handle[ 0, nch - 1 ] : each channel one handle
 
 size_t nchs;
@@ -352,16 +354,9 @@ void addr_init(const nvm_geo *g)
 	size_t i;
 	nchs = g->nchannels;
 	
-	struct addr_meta *am;
 	am = (addr_meta *)malloc(sizeof(addr_meta) * nchs);
 	if (!am) {
 		//throw (oc_excpetion("not enough memory", false));
-	}
-
-	meta_blk_end = (size_t *)malloc(sizeof(size_t) * nchs);
-	if (!meta_blk_end) {
-		addr_release();
-		//throw (oc_excpetion("not enough memory", false)); 
 	}
 
 	blk_addr_handlers_of_ch = (blk_addr_handle **)malloc(sizeof(blk_addr_handle *) * nchs);
@@ -391,8 +386,5 @@ void addr_release()
 	}
 	if (blk_addr_handlers_of_ch) {
 		free(blk_addr_handlers_of_ch);
-	}
-	if (meta_blk_end) {
-		free(meta_blk_end);
 	}
 }

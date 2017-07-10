@@ -8,9 +8,9 @@
 void extent_blk_area_init(
 	struct nvm_dev* dev,
 	const struct nvm_geo* geo,
-	int st_ch, int ed_ch,
-	struct blk_addr* st_addr, size_t addr_nr,
-	struct nat_table* nat, size_t nat_max_length
+	uint32_t st_ch, uint32_t ed_ch,
+	struct blk_addr* st_addr, size_t* addr_nr,
+	struct nat_table* nat
 );
 
 #endif

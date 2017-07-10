@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <string.h>
+#include <stddef.h>
 #include "meta_blk_area.h"
 #include "blk_addr.h"
 #include <liblightnvm.h>
@@ -6,13 +8,19 @@
 extern blk_addr_handle **blk_addr_handlers_of_ch;
 
 MetaBlkArea::MetaBlkArea(   // first block to store bitmap
+    struct nvm_dev * dev,
     const struct nvm_geo* geo,
-	int obj_size,
+	size_t obj_size,
 	const char* mba_name,
-	int st_ch, int ed_ch,
+	uint32_t st_ch, uint32_t ed_ch,
 	struct blk_addr* st_addr, size_t* addr_nr,
-	struct nar_table* nat, size_t nat_max_length )
+	struct nat_table* nat )
 {
+    size_t nat_max_length   =   nat->max_length;
+
+    this->dev               =   dev;
+    this->geo               =   geo;
+
     this->obj_size          =   obj_size;
     this->obj_nr_per_page   =   geo->page_nbytes / obj_size ;
     this->obj_nr_per_blk    =   obj_nr_per_page * geo->npages;
@@ -22,12 +30,12 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
     // meta_blk_addr[0] contains bitmap
     // meta_blk_addr[1, size-1] contains obj
     meta_blk_addr_size = 0;
-    for(int ch=st_ch; cd<=ed_ch; ++ch){
+    for(int ch=st_ch; ch<=ed_ch; ++ch){
         meta_blk_addr_size += addr_nr[ ch - st_ch ];
     }
     meta_blk_addr = new struct blk_addr[ meta_blk_addr_size ];  // all blk_addr of this meta area
     size_t idx = 0;
-    for(int ch=st_ch; cd<=ed_ch; ++ch){
+    for(int ch=st_ch; ch<=ed_ch; ++ch){
         for(int i=0; i<addr_nr[ch-st_ch]; ++i){
             meta_blk_addr[ idx ] = st_addr[ ch-st_ch ];
             blk_addr_handlers_of_ch[ ch ]->BlkAddrAdd( i, &(meta_blk_addr[ idx ]) );
@@ -37,14 +45,14 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
 
     // read bitmap from SSD & build blk_map[],blk_page_map[],blk_page_obj_map[]
     struct nvm_addr first_blk_nvm_addr;
-    blk_addr_handlers_of_ch[ st_ch ].convert_2_nvm_addr( &(meta_blk_addr[0]), &first_blk_nvm_addr );
+    blk_addr_handlers_of_ch[ st_ch ]->convert_2_nvm_addr( &(meta_blk_addr[0]), &first_blk_nvm_addr );
     struct nvm_vblk * first_blk_vblk = nvm_vblk_alloc( dev, &first_blk_nvm_addr, 1 ); 
     
     map_buf_size = geo->npages * geo->page_nbytes; // one block size
-    map_buf = malloc( map_buf_size );
+    map_buf =(char*) malloc( map_buf_size );
     size_t map_buf_idx = 0;
-    nvm_vblk_read( &first_blk_vblk, map_buf, map_buf_size );    // read bitmap
-    nvm_vblk_free( &first_blk_vblk );
+    nvm_vblk_read( first_blk_vblk, map_buf, map_buf_size );    // read bitmap
+    nvm_vblk_free( first_blk_vblk );
 
     blk_map = new uint8_t[ meta_blk_addr_size ];    // alloc blk_map[ 1, size ]
     for(int i=1; i<meta_blk_addr_size; ++i){
@@ -88,7 +96,7 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
     nat_need_flush = 0;
 
     // obj cache
-    obj_cache = malloc( sizeof(void*) * nat_max_length );
+    obj_cache = (void**) malloc( sizeof(void*) * nat_max_length );
 }
 
 void MetaBlkArea::find_next_act_blk( size_t last_blk_idx )
@@ -102,10 +110,12 @@ void MetaBlkArea::find_next_act_blk( size_t last_blk_idx )
         if( blk_map[blk_idx] != MBA_MAP_STATE_FULL ){
             
             blk_act = blk_idx;
-            for(size_t page_idx = 0; page_idx < geo->npages; ++page_idx ){
+            size_t page_idx = 0;
+            for(page_idx = 0; page_idx < geo->npages; ++page_idx ){
                 if( blk_page_map[ blk_act ][ page_idx ] != MBA_MAP_STATE_FULL ){
-                    page_act = page_idex;
-                    for(size_t obj_idx = 0; obj_idx < obj_nr_per_page; ++obj_idx ){
+                    page_act = page_idx;
+                    size_t obj_idx = 0;
+                    for( obj_idx = 0; obj_idx < obj_nr_per_page; ++obj_idx ){
                         if( blk_page_obj_map[ blk_act ][ page_act ][ obj_idx ] == MBA_MAP_STATE_FREE )
                         {
                             obj_act = obj_idx;
@@ -127,8 +137,8 @@ Nat_Obj_ID_Type MetaBlkArea::alloc_obj()
         if( nat->entry[i].is_used == 0 && nat->entry[i].is_dead == 0 ){
             nat->entry[i].is_used  = 1;
             nat->entry[i].blk_idx  = blk_act;
-            nat->entry[i].page_idx = page_act;
-            nat->entry[i].obj_idx  = obj_act;
+            nat->entry[i].page     = page_act;
+            nat->entry[i].obj      = obj_act;
             act_addr_set_state( MBA_MAP_STATE_FULL );   // obj is full ( of course )
             act_addr_add( 1 );
             if( obj_cache[i] != nullptr ){
@@ -221,10 +231,10 @@ void MetaBlkArea::GC()
     // GC will ignore blk_act
 }
 
-void  MetaBlkArea::write_by_obj_id(Nat_Obj_Addr_Type obj_id, void* obj)
+void MetaBlkArea::write_by_obj_id(Nat_Obj_ID_Type obj_id, void* obj)
 {
     if( obj_id <=0 || obj_id >= nat_max_length ) return;
-    if( nat->entrt[ obj_id ].is_used == 0 ) return;
+    if( nat->entry[ obj_id ].is_used == 0 ) return;
     if( obj_cache[ obj_id ] != nullptr ){
         //free( obj_cache[i] );
         //obj_cache[i] = obj;
@@ -237,8 +247,8 @@ void  MetaBlkArea::write_by_obj_id(Nat_Obj_Addr_Type obj_id, void* obj)
 
 void* MetaBlkArea::read_by_obj_id(Nat_Obj_ID_Type obj_id)
 {
-    if( obj_id <=0 || obj_id >= nat_max_length ) return;
-    if( nat->entrt[obj_id].is_used == 0 ) return;
+    if( obj_id <=0 || obj_id >= nat_max_length ) return nullptr;
+    if( nat->entry[obj_id].is_used == 0 ) return nullptr;
     //if( nat->entry[obj_id].obj_id != obj_id ) return; 
 
     void* ret = malloc( obj_size );
@@ -250,16 +260,16 @@ void* MetaBlkArea::read_by_obj_id(Nat_Obj_ID_Type obj_id)
     else{
         struct nvm_addr nvm_addr_;
         blk_addr_handlers_of_ch[0]->convert_2_nvm_addr(
-            &( meta_blk_addr[ nat->entry[obj_id].blk_idx ] ),
+            &( meta_blk_addr[ nat->entry[ obj_id ].blk_idx ] ),
             &nvm_addr_
         );
-        nvm_addr_.g.pg = nat->entry[obj_id].page;
+        nvm_addr_.g.pg = nat->entry[ obj_id ].page;
 
         struct nvm_ret nvm_ret_;
         nvm_addr_read( dev, &nvm_addr_, 1, buf, nullptr, 0, &nvm_ret_ );
 
         void *obj = malloc( obj_size );
-        memcpy( obj, buf + obj_size * nat->entry[i].obj , obj_size );
+        memcpy( obj, buf + obj_size * nat->entry[ obj_id ].obj , obj_size );
         obj_cache[obj_id] = obj;
 
         memcpy( ret, obj_cache[ obj_id ], obj_size );

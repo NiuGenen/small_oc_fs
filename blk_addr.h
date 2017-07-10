@@ -4,10 +4,12 @@
 #include <stdint.h>
 #include <stddef.h>
 //#include "lnvm/liblightnvm.h"
+#include <liblightnvm.h>
 
 /**
  * for test : copy from liblightnvm.h
  */
+/*
 struct nvm_geo {
 	size_t nchannels;	///< Number of channels on device
 	size_t nluns;		///< Number of LUNs per channel
@@ -22,30 +24,27 @@ struct nvm_geo {
 
 	size_t tbytes;		///< Total number of bytes in geometry
 };
-
-struct nvm_addr {
-	union {
-		/**
-		 * Address packing and geometric accessors
-		 */
-		struct {
-			uint64_t blk	: 16;	///< Block address
-			uint64_t pg	: 16;	///< Page address
-			uint64_t sec	: 8;	///< Sector address
-			uint64_t pl	: 8;	///< Plane address
-			uint64_t lun	: 8;	///< LUN address
-			uint64_t ch	: 7;	///< Channel address
-			uint64_t rsvd	: 1;	///< Reserved
-		} g;
-
-		struct {
-			uint64_t line		: 63;	///< Address line
-			uint64_t is_cached	: 1;	///< Cache hint?
-		} c;
-
-		uint64_t ppa;				///< Address as ppa
-	};
-};
+*/
+//struct nvm_addr {
+//	union {
+//		struct {
+//			uint64_t blk	: 16;	///< Block address
+//			uint64_t pg	: 16;	///< Page address
+//			uint64_t sec	: 8;	///< Sector address
+//			uint64_t pl	: 8;	///< Plane address
+//			uint64_t lun	: 8;	///< LUN address
+//			uint64_t ch	: 7;	///< Channel address
+//			uint64_t rsvd	: 1;	///< Reserved
+//		} g;
+//
+//		struct {
+//			uint64_t line		: 63;	///< Address line
+//			uint64_t is_cached	: 1;	///< Cache hint?
+//		} c;
+//
+//		uint64_t ppa;				///< Address as ppa
+//	};
+//};
 
 //1 channel 1 ext_tree
 //for qemu:

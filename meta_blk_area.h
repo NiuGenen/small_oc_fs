@@ -1,13 +1,14 @@
 #ifndef _META_BLK_AREA_H_
 #define _META_BLK_AREA_H_
 
+#include <stddef.h>
 #include "blk_addr.h"	// need one blk_addr_handle to handle meta data blk
 //#include "lnvm/liblightnvm.h"
 
 // NAT table for obj addressing
 
-typedef uint64_t Nat_Obj_ID_Type
-typedef uint32_t Nat_Obj_Addr_Type
+typedef uint64_t Nat_Obj_ID_Type;
+typedef uint32_t Nat_Obj_Addr_Type;
 
 struct nat_entry{
 	Nat_Obj_ID_Type obj_id;
@@ -41,17 +42,17 @@ public:
 	MetaBlkArea(
 		struct nvm_dev* dev,
     	const struct nvm_geo* geo,
-		int obj_size,
+		size_t obj_size,
 		const char* mba_name,
-		int st_ch, int ed_ch,
-		struct blk_addr* st_addr, struct blk_addr* ed_addr,
-		struct nar_table* nat
+		uint32_t st_ch, uint32_t ed_ch,
+		struct blk_addr* st_addr, size_t* addr_nr,
+		struct nat_table* nat
 	);
 	~MetaBlkArea();
 
 	Nat_Obj_ID_Type alloc_obj();
 	void de_alloc_obj(Nat_Obj_ID_Type obj_id);
-	void  write_by_obj_id(Nat_Obj_Addr_Type obj_id, void* obj);
+	void write_by_obj_id(Nat_Obj_ID_Type obj_id, void* obj);
 	void* read_by_obj_id(Nat_Obj_ID_Type obj_id);
 	int if_nat_need_flush();
 	void after_nat_flush();
@@ -59,7 +60,10 @@ public:
 	void GC();
 
 private:
-	int obj_size;	// 1KB or 4KB
+	struct nvm_dev* dev;
+   	const struct nvm_geo* geo;
+
+	size_t obj_size;	// 1KB or 4KB
 	size_t obj_nr_per_page;
 	size_t obj_nr_per_blk;
 	const char* mba_name;
@@ -80,7 +84,7 @@ private:
 	void find_next_act_blk( size_t start_blk_idx );
 	void act_addr_add(size_t n);
 
-	struct nar_table* nat;
+	struct nat_table* nat;
 	size_t nat_max_length;
 	size_t nat_dead_nr;
 	int nat_need_flush;

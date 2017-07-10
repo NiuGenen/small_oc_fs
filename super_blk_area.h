@@ -1,6 +1,7 @@
 #ifndef _SUPER_BLK_AREA_H_
 #define _SUPER_BLK_AREA_H_
 
+#include <stddef.h>
 #include "blk_addr.h"
 
 class OcssdSuperBlock{
@@ -45,9 +46,9 @@ private:
     char* sb_meta_buf;
     struct ocssd_super_block_meta sb_meta;
     
-    struct nar_table* nat_fn;
-    struct nar_table* nat_fm;
-    struct nar_table* nat_ext;
+    struct nat_table* nat_fn;
+    struct nat_table* nat_fm;
+    struct nat_table* nat_ext;
 
     struct nvm_vblk* fn_nat_vblk;
     struct nvm_vblk* fm_nat_vblk;
@@ -64,6 +65,6 @@ private:
     void flush();
     void flush_sb();
     void flush_nat();
-}
+};
 
 #endif
