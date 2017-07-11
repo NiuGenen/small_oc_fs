@@ -1,7 +1,7 @@
 #include "blk_addr.h"
 #include <stdlib.h>
 #include <stdio.h>
-#include <stddef.h>
+#include "liblightnvm.h"
 
 blk_addr_handle::blk_addr_handle(struct nvm_geo const * g, struct addr_meta const * tm)
 	: geo_(g), tm_(tm), status_(0), format_()
@@ -265,8 +265,8 @@ int blk_addr_handle::BlkAddrValid(size_t ch, size_t lun, size_t pl, size_t blk)
  */
 void blk_addr_handle::do_sub_or_add(size_t x, struct blk_addr *addr, int mode)
 {
-	size_t aos[4]; //add or sub
-	size_t v[4];
+	ssize_t aos[4]; //add or sub
+	ssize_t v[4];
 	int i;
 	if (x > BlkAddrDiff(addr, mode)) { // out of range [ lowest, highest ]
 		status_ = -CalcOF;	
@@ -277,9 +277,9 @@ void blk_addr_handle::do_sub_or_add(size_t x, struct blk_addr *addr, int mode)
     //            ch   blk  pl   lun
     //            [0]  [1]  [2]  [3]
 	for (i = 3; i >= 0; i--) {
-		aos[i] = x % usize_[i];
+		aos[i] = static_cast<ssize_t>( x % usize_[i] );
 		x = x / usize_[i];
-		v[i] = static_cast<size_t>((addr->__buf & mask_[i]) >> lmov_[i]);
+		v[i] = static_cast<ssize_t>((addr->__buf & mask_[i]) >> lmov_[i]);
 	}
     
 	if (mode == 0) {
@@ -293,25 +293,25 @@ void blk_addr_handle::do_sub_or_add(size_t x, struct blk_addr *addr, int mode)
 		addr->__buf |= static_cast<uint64_t>(v[i]) << lmov_[i];
 	}
 }
-void blk_addr_handle::do_sub(size_t *aos, size_t *v, struct blk_addr *addr)
+void blk_addr_handle::do_sub(ssize_t *aos, ssize_t *v, struct blk_addr *addr)
 {
 	for (int i = 3; i >= 0; i--) {
 		if (v[i] < aos[i]) {
 			v[i - 1]--;
-			v[i] = usize_[i] + v[i] - aos[i];
+			v[i] = static_cast<ssize_t>( usize_[i] + v[i] - aos[i] );
 		} else {
 			v[i] -= aos[i];
 		}
 	}
 	v[format_.lun] += tm_->stlun;
 }
-void blk_addr_handle::do_add(size_t *aos, size_t *v, struct blk_addr *addr)
+void blk_addr_handle::do_add(ssize_t *aos, ssize_t *v, struct blk_addr *addr)
 {
 	for (int i = 3; i >= 0; i--) {
 		v[i] += aos[i];
-		if (v[i] >= usize_[i]) {
+		if (v[i] >= static_cast<ssize_t>( usize_[i]) ) {
 			v[i - 1]++;
-			v[i] -= usize_[i];
+			v[i] -= static_cast<ssize_t>( usize_[i] );
 		}
 	}
 	v[format_.lun] += tm_->stlun;
@@ -349,7 +349,7 @@ blk_addr_handle **blk_addr_handlers_of_ch;	// blk_addr_handle[ 0, nch - 1 ] : ea
 
 size_t nchs;
 
-void addr_init(const nvm_geo *g)
+void addr_init(const struct nvm_geo *g)
 {
 	size_t i;
 	nchs = g->nchannels;

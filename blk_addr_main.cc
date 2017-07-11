@@ -1,4 +1,5 @@
 #include "blk_addr.h"
+#include "liblightnvm.h"
 #include <stdio.h>
 
 #define TEST_SIZE 33
@@ -7,7 +8,7 @@ void binary_print( struct blk_addr* addr ){
     uint64_t buf = addr->__buf;
     char out[65] = {'0'};
     for(int i = 1; i <= 64; ++i){
-        out[64-i] = ( buf & 1 ) + '0' ;
+        out[64-i] = (char)( ( (char)buf & 1 ) + '0' );
         buf = buf >> 1;
     }
     out[64]='\0';
@@ -22,7 +23,7 @@ struct blk_addr blk_hig;
 
 int main()
 {
-	nvm_geo g;
+	struct nvm_geo g;
 
 	g.nchannels = 16;
 	g.nluns = 8;
@@ -31,7 +32,7 @@ int main()
 	g.npages = 256;
 
     nchs = g.nchannels;
-    addr_init(&g);
+    addr_init( &g );
 
     blk_addr_handle* bah_ch_0 = blk_addr_handlers_of_ch[0] ;
 
@@ -40,8 +41,8 @@ int main()
     size_t blk_nr_ch_0 = bah_ch_0->get_blk_nr();
     printf("ch_0_blk_nr = %u\n", blk_nr_ch_0 );
     printf("ch_0_blk_nr = %u\n", 8 * 16 * 16 );
-    printf("blk_low = %u\n", blk_low.__buf );
-    printf("blk_hig = %u\n", blk_hig.__buf );
+    printf("blk_low = %llu\n", blk_low.__buf );
+    printf("blk_hig = %llu\n", blk_hig.__buf );
 
     printf("blk_ch_0_low = ");
     binary_print( &blk_low );

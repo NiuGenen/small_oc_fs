@@ -2,49 +2,9 @@
 #define _BLK_ADDR_H_
 
 #include <stdint.h>
-#include <stddef.h>
-//#include "lnvm/liblightnvm.h"
+#include <stddef.h>"
 #include <liblightnvm.h>
-
-/**
- * for test : copy from liblightnvm.h
- */
-/*
-struct nvm_geo {
-	size_t nchannels;	///< Number of channels on device
-	size_t nluns;		///< Number of LUNs per channel
-	size_t nplanes;		///< Number of planes per LUN
-	size_t nblocks;		///< Number of blocks per plane
-	size_t npages;		///< Number of pages per block
-	size_t nsectors;	///< Number of sectors per page
-
-	size_t page_nbytes;	///< Number of bytes per page
-	size_t sector_nbytes;	///< Number of bytes per sector
-	size_t meta_nbytes;	///< Number of bytes for out-of-bound / metadata
-
-	size_t tbytes;		///< Total number of bytes in geometry
-};
-*/
-//struct nvm_addr {
-//	union {
-//		struct {
-//			uint64_t blk	: 16;	///< Block address
-//			uint64_t pg	: 16;	///< Page address
-//			uint64_t sec	: 8;	///< Sector address
-//			uint64_t pl	: 8;	///< Plane address
-//			uint64_t lun	: 8;	///< LUN address
-//			uint64_t ch	: 7;	///< Channel address
-//			uint64_t rsvd	: 1;	///< Reserved
-//		} g;
-//
-//		struct {
-//			uint64_t line		: 63;	///< Address line
-//			uint64_t is_cached	: 1;	///< Cache hint?
-//		} c;
-//
-//		uint64_t ppa;				///< Address as ppa
-//	};
-//};
+#include <sys/types.h>
 
 //1 channel 1 ext_tree
 //for qemu:
@@ -89,15 +49,8 @@ struct addr_meta { //fields for address-format
  * 			  BBT0  BBT1  BBT2  BBT3 		BBT0  BBT1  BBT2  BBT3
  */
 
-//#include <stdio.h>
 struct blk_addr{
 	uint64_t __buf;
-	//struct blk_addr& operator = (const struct blk_addr& rhs)
-	//{
-	//	this->__buf = rhs.__buf;
-    //    printf("this=%u\nrhs=%u\n",this->__buf,rhs.__buf);
-	//	return *this;
-	//}
 };
 
 class blk_addr_handle{ // a handle should attach to a tree.
@@ -176,8 +129,8 @@ private:
 
 	void init();
 	void do_sub_or_add(size_t x, struct blk_addr* addr, int mode);
-	void do_sub(size_t* aos, size_t* v, struct blk_addr *addr);
-	void do_add(size_t* aos, size_t* v, struct blk_addr *addr);
+	void do_sub(ssize_t* aos, ssize_t* v, struct blk_addr *addr);
+	void do_add(ssize_t* aos, ssize_t* v, struct blk_addr *addr);
 public:
 	struct nvm_geo const * geo_;
 private:
@@ -193,7 +146,7 @@ private:
 	size_t usize_[4];
 };
 
-void addr_init(const nvm_geo *g);
+void addr_init(const struct nvm_geo *g);
 void addr_release();
 
 #endif

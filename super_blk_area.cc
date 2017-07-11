@@ -4,7 +4,7 @@
 #include "filename_meta/file_name_blk_area.h"
 #include "meta_blk_area.h"
 #include "blk_addr.h"
-#include <liblightnvm.h>
+#include "liblightnvm.h"
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>

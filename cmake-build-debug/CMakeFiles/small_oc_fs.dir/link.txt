@@ -1,0 +1,3 @@
+D:\CodeFiles\CLion\bin\cmake\bin\cmake.exe -E remove -f CMakeFiles\small_oc_fs.dir/objects.a
+D:\CodeFiles\MinGW\bin\ar.exe cr CMakeFiles\small_oc_fs.dir/objects.a @CMakeFiles\small_oc_fs.dir\objects1.rsp
+D:\CodeFiles\MinGW\bin\g++.exe  -g   -Wl,--whole-archive CMakeFiles\small_oc_fs.dir/objects.a -Wl,--no-whole-archive  -o small_oc_fs.exe -Wl,--out-implib,libsmall_oc_fs.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\small_oc_fs.dir\linklibs.rsp

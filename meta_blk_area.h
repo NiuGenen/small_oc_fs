@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include "blk_addr.h"	// need one blk_addr_handle to handle meta data blk
-//#include "lnvm/liblightnvm.h"
+#include "liblightnvm.h"
 
 // NAT table for obj addressing
 

@@ -1,9 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
-#include <stddef.h>
 #include "meta_blk_area.h"
 #include "blk_addr.h"
-#include <liblightnvm.h>
+#include "liblightnvm.h"
 
 extern blk_addr_handle **blk_addr_handlers_of_ch;
 
