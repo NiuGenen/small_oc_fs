@@ -15,7 +15,7 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
 	struct blk_addr* st_addr, size_t* addr_nr,
 	struct nat_table* nat )
 {
-    size_t nat_max_length   =   nat->max_length;
+    uint64_t nat_max_length   =   nat->max_length;
 
     this->dev               =   dev;
     this->geo               =   geo;
@@ -35,7 +35,7 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
     meta_blk_addr = new struct blk_addr[ meta_blk_addr_size ];  // all blk_addr of this meta area
     size_t idx = 0;
     for(int ch=st_ch; ch<=ed_ch; ++ch){
-        for(int i=0; i<addr_nr[ch-st_ch]; ++i){
+        for(size_t i=0; i<addr_nr[ch-st_ch]; ++i){
             meta_blk_addr[ idx ] = st_addr[ ch-st_ch ];
             blk_addr_handlers_of_ch[ ch ]->BlkAddrAdd( i, &(meta_blk_addr[ idx ]) );
             idx += 1;
@@ -96,6 +96,11 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
 
     // obj cache
     obj_cache = (void**) malloc( sizeof(void*) * nat_max_length );
+}
+
+void MetaBlkArea::~MetaBlkArea()
+{
+
 }
 
 void MetaBlkArea::find_next_act_blk( size_t last_blk_idx )

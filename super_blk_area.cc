@@ -1,13 +1,12 @@
 #include "super_blk_area.h"
 #include "./extent_meta/extent_blk_area.h"
-#include "file_meta/file_meta_blk_area.h"
-#include "filename_meta/file_name_blk_area.h"
+#include "./file_meta/file_meta_blk_area.h"
+#include "./filename_meta/file_name_blk_area.h"
 #include "meta_blk_area.h"
 #include "blk_addr.h"
 #include "liblightnvm.h"
 #include <stdio.h>
 #include <string.h>
-#include <stddef.h>
 
 #define OC_DEV_PATH "/dev/nvme0n1"
 #define SUPER_BLK_MAGIC_NUM 0x1234567812345678
@@ -23,6 +22,74 @@ extern blk_addr_handle **blk_addr_handlers_of_ch;
 //              blk[3]  | fm_nat
 //              blk[4]  ┘
 //              blk[5]  - ext_nat
+// all channel
+//              blks    fn_obj      [0,map_size-1]:bitmap [map_size,size-1]:obj
+//              blks    fm_obj      [0,map_size-1]:bitmap [map_size,size-1]:obj
+//              blks    ext_obj     [0,map_size-1]:bitmap [map_size,size-1]:obj
+//
+void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
+    ocssd_geo_.nchannels = geo->nchannels;
+    ocssd_geo_.nluns     = geo->nluns;
+    ocssd_geo_.nplanes   = geo->nplanes;
+    ocssd_geo_.nblocks   = geo->nblocks;
+    ocssd_geo_.npages    = geo->npages;
+    ocssd_geo_.nsectors  = geo->nsectors;
+
+    ocssd_geo_.sector_nbytes  = geo->sector_nbytes;
+    ocssd_geo_.page_nbytes    = geo->page_nbytes;
+    ocssd_geo_.block_nbytes   = geo->npages * geo->page_nbytes;
+    ocssd_geo_.plane_nbytes   = ocssd_geo_.block_nbytes   * geo->nplanes;
+    ocssd_geo_.lun_nbytes     = ocssd_geo_.plane_nbytes   * geo->nplanes;
+    ocssd_geo_.channel_nbytes = ocssd_geo_.lun_nbytes     * geo->nluns;
+    ocssd_geo_.ssd_nbytes     = ocssd_geo_.channel_nbytes * geo->nchannels;
+
+    ocssd_geo_.extent_nbytes     = 24;
+    ocssd_geo_.extent_des_nbytes = 24;
+    ocssd_geo_.max_ext_addr_nr   = 8;
+    ocssd_geo_.min_ext_addr_nr   = 2;
+
+    ocssd_geo_.fn_obj_nbytes  = 4096;   // fn_btree_degree  = 336
+    ocssd_geo_.fm_obj_nbytes  = 1024;   // filename + meta_obj_id + extent[]
+    ocssd_geo_.ext_obj_nbytes = 4096;   // ext_btree_degree = 128
+
+    ocssd_geo_.fn_blk_obj_nr  = ocssd_geo_.block_nbytes / ocssd_geo_.fn_obj_nbytes;
+    ocssd_geo_.fm_blk_obj_nr  = ocssd_geo_.block_nbytes / ocssd_geo_.fm_obj_nbytes;
+    ocssd_geo_.ext_blk_obj_nr = ocssd_geo_.block_nbytes / ocssd_geo_.ext_obj_nbytes;
+
+    ocssd_geo_.fn_btree_degree  = 336;
+    ocssd_geo_.ext_btree_degree = 128;
+
+    ocssd_geo_.fn_3LVL_obj_nr  = ocssd_geo_.fn_btree_degree * ocssd_geo_.fn_btree_degree
+                                + ocssd_geo_.fn_btree_degree
+                                + 1;
+    ocssd_geo_.ext_3LVL_obj_nr = ocssd_geo_.ext_btree_degree * ocssd_geo_.ext_btree_degree
+                                + ocssd_geo_.ext_btree_degree
+                                + 1;
+
+    ocssd_geo_.file_ext_nr     = ( ocssd_geo_.fm_obj_nbytes - 248 - 8 ) / ocssd_geo_.extent_des_nbytes;
+    ocssd_geo_.file_min_nbytes = ocssd_geo_.file_ext_nr  * ocssd_geo_.min_ext_addr_nr * ocssd_geo_.block_nbytes;
+    ocssd_geo_.file_max_nbytes = ocssd_geo_.file_ext_nr  * ocssd_geo_.max_ext_addr_nr * ocssd_geo_.block_nbytes;
+    ocssd_geo_.file_min_nr = ocssd_geo_.ssd_nbytes / ocssd_geo_.file_max_nbytes;
+    ocssd_geo_.file_max_nr = ocssd_geo_.ssd_nbytes / ocssd_geo_.file_min_nbytes;
+    ocssd_geo_.file_avg_nr = ( ocssd_geo_.file_min_nr + ocssd_geo_.file_max_nr ) / 2;
+
+    ocssd_geo_.fn_obj_nr  = ocssd_geo_.fn_3LVL_obj_nr;
+    ocssd_geo_.fm_obj_nr  = ocssd_geo_.file_max_nr;
+    ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_3LVL_obj_nr;
+
+        ocssd_geo_.fn_blk_nr  = ocssd_geo_.fn_obj_nr  / ocssd_geo_.fn_blk_obj_nr  + 1;
+        ocssd_geo_.fm_blk_nr  = ocssd_geo_.fm_blk_nr  / ocssd_geo_.fm_blk_obj_nr  + 1;
+        ocssd_geo_.ext_blk_nr = ocssd_geo_.ext_obj_nr / ocssd_geo_.ext_blk_obj_nr + 1;
+
+    ocssd_geo_.nat_entry_nbytes = 16;   // 16 = 8(ID) + 4(blk) + 2(page) + 1(obj) + 1(state)
+    ocssd_geo_.nat_fn_entry_nr  = ocssd_geo_.fn_3LVL_obj_nr;
+    ocssd_geo_.nat_fm_entry_nr  = ocssd_geo_.file_max_nr;
+    ocssd_geo_.nat_ext_entry_nr = ocssd_geo_.ext_3LVL_obj_nr;
+
+        ocssd_geo_.nat_fn_blk_nr  = ocssd_geo_.nat_fn_entry_nr  * ocssd_geo_.nat_entry_nbytes / ocssd_geo_.block_nbytes + 1;
+        ocssd_geo_.nat_fm_blk_nr  = ocssd_geo_.nat_fm_entry_nr  * ocssd_geo_.nat_entry_nbytes / ocssd_geo_.block_nbytes + 1;
+        ocssd_geo_.nat_ext_blk_nr = ocssd_geo_.nat_ext_entry_nr * ocssd_geo_.nat_entry_nbytes / ocssd_geo_.block_nbytes + 1;
+}
 
 OcssdSuperBlock::OcssdSuperBlock(){
     sb_need_flush = 0;
@@ -101,51 +168,63 @@ blk_addr_handlers_of_ch[0]->PrBlkAddr( sb_addr, true, " first block of SSD to st
     nat_ext->entry = new struct nat_entry[ nat_ext->max_length ];
 
     // read nat table from SSD
-    
-    struct blk_addr fn_nat_blk = *sb_addr;
-    struct nvm_addr* fn_nat_nvm_addr = new struct nvm_addr[ sb_meta.fn_nat_blk_nr ];
-    for(int i=0; i<sb_meta.fn_nat_blk_nr; ++i){
-        blk_addr_handlers_of_ch[0]->BlkAddrAdd( 1, &fn_nat_blk );
-        blk_addr_handlers_of_ch[0]->convert_2_nvm_addr( &fn_nat_blk, &(fn_nat_nvm_addr[i]) );
-    }
-    fn_nat_vblk = nvm_vblk_alloc( dev, fn_nat_nvm_addr, sb_meta.fn_nat_blk_nr );    // get fn vblk
-    // free( fn_nat_nvm_addr )
-    fn_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.fn_nat_blk_nr ;
-    fn_nat_buf = (char *) nvm_buf_alloc( geo, fn_nat_buf_size ); // read vblk into fn_nat_buf
-    nvm_vblk_read( fn_nat_vblk, fn_nat_buf, fn_nat_buf_size );
-    for(int i=0; i<sb_meta.fn_nat_max_size; ++i){
-        memcpy( &(nat_fn->entry[i]),  // nat_fn->entry[i]
-            fn_nat_buf + sizeof(struct nat_entry) * i,
-            sizeof(struct nat_entry) );
-    }
+    if( !need_format ) {
+        struct blk_addr fn_nat_blk = *sb_addr;
+        struct nvm_addr *fn_nat_nvm_addr = new struct nvm_addr[sb_meta.fn_nat_blk_nr];
+        for (int i = 0; i < sb_meta.fn_nat_blk_nr; ++i) {
+            blk_addr_handlers_of_ch[0]->BlkAddrAdd(1, &fn_nat_blk);
+            blk_addr_handlers_of_ch[0]->convert_2_nvm_addr(&fn_nat_blk, &(fn_nat_nvm_addr[i]));
+        }
+        fn_nat_vblk = nvm_vblk_alloc(dev, fn_nat_nvm_addr, sb_meta.fn_nat_blk_nr);    // get fn vblk
+        // free( fn_nat_nvm_addr )
+        fn_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.fn_nat_blk_nr;
+        fn_nat_buf = (char *) nvm_buf_alloc(geo, fn_nat_buf_size); // read vblk into fn_nat_buf
+        nvm_vblk_read(fn_nat_vblk, fn_nat_buf, fn_nat_buf_size);
+        for (int i = 0; i < sb_meta.fn_nat_max_size; ++i) {
+            memcpy(&(nat_fn->entry[i]),  // nat_fn->entry[i]
+                   fn_nat_buf + sizeof(struct nat_entry) * i,
+                   sizeof(struct nat_entry));
+        }
 
-    struct blk_addr fm_nat_blk = fn_nat_blk;
-    struct nvm_addr* fm_nat_nvm_addr = new struct nvm_addr[ sb_meta.fm_nat_blk_nr ];
-    for(int i=0; i<sb_meta.fm_nat_blk_nr; ++i){
-        blk_addr_handlers_of_ch[0]->BlkAddrAdd( 1, &fm_nat_blk );
-        blk_addr_handlers_of_ch[0]->convert_2_nvm_addr( &fm_nat_blk, &(fm_nat_nvm_addr[i]) );
-    }
-    fm_nat_vblk = nvm_vblk_alloc( dev, fm_nat_nvm_addr, sb_meta.fm_nat_blk_nr );
-    fm_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.fm_nat_blk_nr ;
-    fm_nat_buf = (char*) nvm_buf_alloc( geo, fm_nat_buf_size );
-    nvm_vblk_read( fm_nat_vblk, fm_nat_buf, fm_nat_buf_size );
-    for(int i=0; i<sb_meta.fm_nat_max_size; ++i){
-        // nat_fm->entry[i]
-    }
+        struct blk_addr fm_nat_blk = fn_nat_blk;
+        struct nvm_addr *fm_nat_nvm_addr = new struct nvm_addr[sb_meta.fm_nat_blk_nr];
+        for (int i = 0; i < sb_meta.fm_nat_blk_nr; ++i) {
+            blk_addr_handlers_of_ch[0]->BlkAddrAdd(1, &fm_nat_blk);
+            blk_addr_handlers_of_ch[0]->convert_2_nvm_addr(&fm_nat_blk, &(fm_nat_nvm_addr[i]));
+        }
+        fm_nat_vblk = nvm_vblk_alloc(dev, fm_nat_nvm_addr, sb_meta.fm_nat_blk_nr);
+        fm_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.fm_nat_blk_nr;
+        fm_nat_buf = (char *) nvm_buf_alloc(geo, fm_nat_buf_size);
+        nvm_vblk_read(fm_nat_vblk, fm_nat_buf, fm_nat_buf_size);
+        for (int i = 0; i < sb_meta.fm_nat_max_size; ++i) {
+            // nat_fm->entry[i]
+        }
 
-    struct blk_addr ext_nat_blk = fm_nat_blk;
-    struct nvm_addr* ext_nat_nvm_addr = new struct nvm_addr[ sb_meta.ext_nat_blk_nr ];
-    for(int i=0; i<sb_meta.ext_nat_blk_nr; ++i){
-        blk_addr_handlers_of_ch[0]->BlkAddrAdd( 1, &ext_nat_blk );
-        blk_addr_handlers_of_ch[0]->convert_2_nvm_addr( &ext_nat_blk, &(ext_nat_nvm_addr[i]) );
+        struct blk_addr ext_nat_blk = fm_nat_blk;
+        struct nvm_addr *ext_nat_nvm_addr = new struct nvm_addr[sb_meta.ext_nat_blk_nr];
+        for (int i = 0; i < sb_meta.ext_nat_blk_nr; ++i) {
+            blk_addr_handlers_of_ch[0]->BlkAddrAdd(1, &ext_nat_blk);
+            blk_addr_handlers_of_ch[0]->convert_2_nvm_addr(&ext_nat_blk, &(ext_nat_nvm_addr[i]));
+        }
+        ext_nat_vblk = nvm_vblk_alloc(dev, ext_nat_nvm_addr, sb_meta.ext_nat_blk_nr);
+        ext_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.ext_nat_blk_nr;
+        ext_nat_buf = (char *) nvm_buf_alloc(geo, ext_nat_buf_size);
+        nvm_vblk_read(ext_nat_vblk, ext_nat_buf, ext_nat_buf_size);
+        for (int i = 0; i < sb_meta.ext_nat_max_size; ++i) {
+            // nat_ext->entry[i]
+        }// */
     }
-    ext_nat_vblk = nvm_vblk_alloc( dev, ext_nat_nvm_addr, sb_meta.ext_nat_blk_nr );
-    ext_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.ext_nat_blk_nr ;
-    ext_nat_buf = (char*)nvm_buf_alloc( geo, ext_nat_buf_size );
-    nvm_vblk_read( ext_nat_vblk, ext_nat_buf, ext_nat_buf_size );
-    for(int i=0; i<sb_meta.ext_nat_max_size; ++i){
-        // nat_ext->entry[i]
-    }// */
+    else{
+        for(size_t i = 0; i < sb_meta.fn_nat_max_size ; ++i){
+            nat_fn->entry[i].state= NAT_ENTRY_FREE;
+        }
+        for(size_t i = 0; i < sb_meta.fm_nat_max_size; ++i){
+            nat_fm->entry[i].state = NAT_ENTRY_FREE;
+        }
+        for(size_t i = 0; i < sb_meta.ext_nat_max_size; ++i){
+            nat_ext->entry[i].state = NAT_ENTRY_FREE;
+        }
+    }
 
     // 3. init meta blk area
     //
@@ -199,6 +278,8 @@ blk_addr_handlers_of_ch[0]->PrBlkAddr( sb_addr, true, " first block of SSD to st
         ext_st_blk, ext_blk_nr,
         nat_ext
     );// */
+
+    flush();
 }
 
 OcssdSuperBlock::~OcssdSuperBlock()

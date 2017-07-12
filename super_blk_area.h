@@ -13,7 +13,70 @@ private:
     struct nvm_dev* dev;
     const struct nvm_geo* geo;
 
-    struct ocssd_super_block_meta{  
+    void gen_ocssd_geo(const nvm_geo* geo);
+
+    struct ocssd_geo{
+        size_t nchannels;
+        size_t nluns;
+        size_t nplanes;
+        size_t nblocks;
+        size_t npages;
+        size_t nsectors;
+
+        size_t ssd_nbytes;
+        size_t channel_nbytes;
+        size_t lun_nbytes;
+        size_t plane_nbytes;
+        size_t block_nbytes;
+        size_t page_nbytes;
+        size_t sector_nbytes;
+
+        size_t extent_nbytes;       //  24 = 8(st) + 8(ed) + 8(junk)
+        size_t extent_des_nbytes;   //  24 = 8(st) + 8(ed) + 8(ch)
+        size_t max_ext_addr_nr;     //  2
+        size_t min_ext_addr_nr;     //  8
+
+        size_t file_ext_nr; //  fm_obj_nbytes - 248 -
+
+        size_t file_min_nbytes;
+        size_t file_max_nbytes;
+        size_t file_min_nr;
+        size_t file_max_nr;
+        size_t file_avg_nr;
+
+        size_t fn_btree_degree;  //  336
+        size_t fn_obj_nbytes;    //  4096
+        size_t fn_blk_obj_nr;    //  block_nbytes / fn_obj_nbytes
+        size_t fn_3LVL_obj_nr;   //  fn_btree_degree * fn_btree_degree + fn_btree_degree + 1
+        size_t fn_obj_nr;
+        size_t fn_blk_nr;        //  fn_3LVL_obj_nr / fn_blk_obj_nr + 1
+
+        size_t fm_obj_nbytes;   //  1024
+        size_t fm_blk_obj_nr;
+        size_t fm_obj_nr;       //  file_max_nr
+        size_t fm_blk_nr;       //  fm_obj_nr * fm_obj_nbytes / block_nbytes + 1
+
+        size_t ext_btree_degree;  //  128
+        size_t ext_obj_nbytes;    //  4096
+        size_t ext_blk_obj_nr;    //  block_nbytes / ext_obj_nbytes
+        size_t ext_3LVL_obj_nr;   //  ext_btree_degree * ext_btree_degree + ext_btree_degree + 1
+        size_t ext_obj_nr;
+        size_t ext_blk_nr;        //  ext_3LVL_obj_nr / ext_blk_obj_nr + 1
+
+        size_t nat_entry_nbytes;    //  16 = 8(ID) + 4(blk) + 2(page) + 1(obj) + 1(state)
+        size_t nat_fn_entry_nr;     //  fn_3LVL_obj_nr
+        size_t nat_fm_entry_nr;     //  file_max_nr
+        size_t nat_ext_entry_nr;    //  ext_3LVL_obj_nr
+
+        size_t nat_fn_blk_nr;   //  nat_fn_entry_nr  * nat_entry_nbytes / block_nbytes + 1
+        size_t nat_fm_blk_nr;   //  nat_fm_entry_nr  * nat_entry_nbytes / block_nbytes + 1
+        size_t nat_ext_blk_nr;  //  nat_ext_entry_nr * nat_entry_nbytes / block_nbytes + 1
+
+        size_t sb_nbytes;   // sizeof(ocssd_super_block_meta)
+
+    } ocssd_geo_;
+
+    struct ocssd_super_block_meta{
         uint64_t magic_num;         //  8 B
 
         uint32_t fn_st_ch;

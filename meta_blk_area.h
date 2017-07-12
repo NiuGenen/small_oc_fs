@@ -13,19 +13,16 @@ typedef uint32_t Nat_Obj_Addr_Type;
 struct nat_entry{
 	Nat_Obj_ID_Type obj_id;
 	//Nat_Obj_Addr_Type obj_address;	// blk_idx page obj
-	uint16_t blk_idx;	// > 0 ; [0] for bitmap
-	uint8_t page;
+	uint32_t blk_idx;	// > 0 ; [0] for bitmap
+	uint16_t page;
 	uint8_t obj;
-	uint16_t is_used;
-	uint16_t is_dead;
-};
-// ( is_used, is_dead )
-//
-// ( 0 , 0 ) : free to use this id
-// ( 1 , 0 ) : this id is used & not write & not de_alloc_obj
-// ( 0 , 1 ) : this id is de_alloc_obj
-// ( 1 , 1 ) : this id is writed, need to change addr
-//
+	uint8_t state;
+};//	8 + 4 + 2 + 1 + 1 = 16
+
+#define NAT_ENTRY_FREE	0
+#define NAT_ENTRY_USED	1
+#define NAT_ENTRY_DEAD	2
+#define NAT_ENTRY_MOVE	3
 
 struct nat_table{
 	struct nat_entry* entry;
