@@ -14,7 +14,7 @@
 
 #define OCSSD_REFORMAT_SSD 0
 
-extern blk_addr_handle **blk_addr_handlers_of_ch;
+extern BlkAddrHandle* ocssd_bah;
 
 // channel[0]
 //              blk[0]  super_block_meta
@@ -175,11 +175,12 @@ OcssdSuperBlock::OcssdSuperBlock(){
     addr_init( geo );   // init blk_handler
 
     // first block of SSD store super_block_meta
-    blk_addr_handlers_of_ch[0]->MakeBlkAddr(0,0,0,0,sb_addr);
+    blk_addr_handle* bah_0_ = ocssd_bah->get_blk_addr_handle( 0 );
+    bah_0_->MakeBlkAddr(0,0,0,0,sb_addr);
     struct nvm_addr sb_nvm_addr;
-    blk_addr_handlers_of_ch[0]->convert_2_nvm_addr( sb_addr, &sb_nvm_addr );
+    bah_0_->convert_2_nvm_addr( sb_addr, &sb_nvm_addr );
 
-blk_addr_handlers_of_ch[0]->PrBlkAddr( sb_addr, true, " first block of SSD to store sb_meta.");
+bah_0_->PrBlkAddr( sb_addr, true, " first block of SSD to store sb_meta.");
 
     // 1. read super super_block_meta
     sb_vblk = nvm_vblk_alloc( dev, &sb_nvm_addr, 1);
@@ -246,8 +247,8 @@ blk_addr_handlers_of_ch[0]->PrBlkAddr( sb_addr, true, " first block of SSD to st
         struct blk_addr fn_nat_blk = *sb_addr;
         struct nvm_addr *fn_nat_nvm_addr = new struct nvm_addr[sb_meta.fn_nat_blk_nr];
         for (int i = 0; i < sb_meta.fn_nat_blk_nr; ++i) {
-            blk_addr_handlers_of_ch[0]->BlkAddrAdd(1, &fn_nat_blk);
-            blk_addr_handlers_of_ch[0]->convert_2_nvm_addr(&fn_nat_blk, &(fn_nat_nvm_addr[i]));
+            bah_0_->BlkAddrAdd(1, &fn_nat_blk);
+            bah_0_->convert_2_nvm_addr(&fn_nat_blk, &(fn_nat_nvm_addr[i]));
         }
         fn_nat_vblk = nvm_vblk_alloc(dev, fn_nat_nvm_addr, sb_meta.fn_nat_blk_nr);    // get fn vblk
         // free( fn_nat_nvm_addr )
@@ -263,8 +264,8 @@ blk_addr_handlers_of_ch[0]->PrBlkAddr( sb_addr, true, " first block of SSD to st
         struct blk_addr fm_nat_blk = fn_nat_blk;
         struct nvm_addr *fm_nat_nvm_addr = new struct nvm_addr[sb_meta.fm_nat_blk_nr];
         for (int i = 0; i < sb_meta.fm_nat_blk_nr; ++i) {
-            blk_addr_handlers_of_ch[0]->BlkAddrAdd(1, &fm_nat_blk);
-            blk_addr_handlers_of_ch[0]->convert_2_nvm_addr(&fm_nat_blk, &(fm_nat_nvm_addr[i]));
+            bah_0_->BlkAddrAdd(1, &fm_nat_blk);
+            bah_0_->convert_2_nvm_addr(&fm_nat_blk, &(fm_nat_nvm_addr[i]));
         }
         fm_nat_vblk = nvm_vblk_alloc(dev, fm_nat_nvm_addr, sb_meta.fm_nat_blk_nr);
         fm_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.fm_nat_blk_nr;
@@ -277,8 +278,8 @@ blk_addr_handlers_of_ch[0]->PrBlkAddr( sb_addr, true, " first block of SSD to st
         struct blk_addr ext_nat_blk = fm_nat_blk;
         struct nvm_addr *ext_nat_nvm_addr = new struct nvm_addr[sb_meta.ext_nat_blk_nr];
         for (int i = 0; i < sb_meta.ext_nat_blk_nr; ++i) {
-            blk_addr_handlers_of_ch[0]->BlkAddrAdd(1, &ext_nat_blk);
-            blk_addr_handlers_of_ch[0]->convert_2_nvm_addr(&ext_nat_blk, &(ext_nat_nvm_addr[i]));
+            bah_0_->BlkAddrAdd(1, &ext_nat_blk);
+            bah_0_->convert_2_nvm_addr(&ext_nat_blk, &(ext_nat_nvm_addr[i]));
         }
         ext_nat_vblk = nvm_vblk_alloc(dev, ext_nat_nvm_addr, sb_meta.ext_nat_blk_nr);
         ext_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.ext_nat_blk_nr;
@@ -310,21 +311,21 @@ blk_addr_handlers_of_ch[0]->PrBlkAddr( sb_addr, true, " first block of SSD to st
     struct blk_addr* fn_st_blk  = new struct blk_addr[ sb_meta.fn_ch_nr ];
     size_t* fn_blk_nr = new size_t[ sb_meta.fn_ch_nr ];
     for(int ch=sb_meta.fn_st_ch; ch<sb_meta.fn_ed_ch; ++ch){
-        //blk_addr_handlers_of_ch[ ch ]->.MakeBlkAddr( , , , , fn_st_blk[ ch - sb_meta.fn_st_ch ]);
+        //ocssd_bah->get_blk_addr_handle(ch)->.MakeBlkAddr( , , , , fn_st_blk[ ch - sb_meta.fn_st_ch ]);
         //fn_blk_nr[ ch - sb_meta.fn_st_ch ] = ;
     }
 
     struct blk_addr* fm_st_blk  = new struct blk_addr[ sb_meta.fm_ch_nr ];
     size_t* fm_blk_nr = new size_t[ sb_meta.fm_ch_nr ];
     for(int ch=sb_meta.fm_st_ch; ch<sb_meta.fm_ed_ch; ++ch){
-        //blk_addr_handlers_of_ch[ ch ].MakeBlkAddr( , , , , fm_st_blk[ ch - sb_meta.fm_st_ch ]);
+        //ocssd_bah->get_blk_addr_handle(ch)->MakeBlkAddr( , , , , fm_st_blk[ ch - sb_meta.fm_st_ch ]);
         //fm_blk_nr[ ch - sb_meta.fm_st_ch ] = ;
     }
 
     struct blk_addr* ext_st_blk = new struct blk_addr[ sb_meta.ext_ch_nr ];
     size_t* ext_blk_nr = new size_t[ sb_meta.ext_ch_nr ];
     for(int ch=sb_meta.ext_st_ch; ch<sb_meta.ext_ed_ch; ++ch){
-        //blk_addr_handlers_of_ch[ ch ].MakeBlkAddr( , , , , ext_st_blk[ ch - sb_meta.ext_st_ch ]);
+        //ocssd_bah->get_blk_addr_handle(ch)->MakeBlkAddr( , , , , ext_st_blk[ ch - sb_meta.ext_st_ch ]);
         //ext_blk_nr[ ch - sb_meta.ext_st_ch ] = ;
     }
 
@@ -359,7 +360,7 @@ blk_addr_handlers_of_ch[0]->PrBlkAddr( sb_addr, true, " first block of SSD to st
 OcssdSuperBlock::~OcssdSuperBlock()
 {
     flush();
-    // release pointer
+    // release
 }
 
 std::string OcssdSuperBlock::txt() {

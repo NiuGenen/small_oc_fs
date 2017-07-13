@@ -1,6 +1,5 @@
 #include "blk_addr.h"
 #include "liblightnvm.h"
-#include <stdio.h>
 
 #define TEST_SIZE 33
 
@@ -15,8 +14,7 @@ void binary_print( struct blk_addr* addr ){
     printf("%s",out);
 }
 
-extern blk_addr_handle** blk_addr_handlers_of_ch;
-extern size_t nchs;
+extern BlkAddrHandle* ocssd_bah;
 
 struct blk_addr blk_low;
 struct blk_addr blk_hig;
@@ -31,10 +29,9 @@ int main()
 	g.nplanes = 16;
 	g.npages = 256;
 
-    nchs = g.nchannels;
     addr_init( &g );
 
-    blk_addr_handle* bah_ch_0 = blk_addr_handlers_of_ch[0] ;
+    blk_addr_handle* bah_ch_0 = ocssd_bah->get_blk_addr_handle( 0 );
 
     blk_low = bah_ch_0->get_lowest();
     blk_hig = bah_ch_0->get_highest();
@@ -58,6 +55,4 @@ int main()
     }
 
     bah_ch_0->PrBlkAddr( &blk_hig, true, "blk_hig = " );
-
-    addr_release();
 }

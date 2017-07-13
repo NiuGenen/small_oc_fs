@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <liblightnvm.h>
 #include <sys/types.h>
+#include <iostream>
 
 //1 channel 1 ext_tree
 //for qemu:
@@ -146,7 +147,23 @@ private:
 	size_t usize_[4];
 };
 
+class BlkAddrHandle{
+public:
+	BlkAddrHandle(const struct nvm_geo* geo);
+	~BlkAddrHandle();
+
+	blk_addr_handle* get_blk_addr_handle( size_t nch );
+
+	std::string txt();
+private:
+    const struct nvm_geo* geo_;
+    BlkAddrHandle* bah;
+
+	struct addr_meta *am;
+	blk_addr_handle **blk_addr_handlers_of_ch;
+	size_t nchs;
+};
+
 void addr_init(const struct nvm_geo *g);
-void addr_release();
 
 #endif

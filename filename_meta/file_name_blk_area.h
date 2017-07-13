@@ -3,7 +3,7 @@
 
 #include "../meta_blk_area.h"
 #include "../blk_addr.h"
-#include <liblightnvm.h>
+#include "../liblightnvm.h"
 #include <stdint.h>
 #include <stddef.h>
 

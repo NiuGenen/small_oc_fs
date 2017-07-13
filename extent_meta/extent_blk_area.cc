@@ -1,6 +1,4 @@
 #include "extent_blk_area.h"
-#include "../meta_blk_area.h"
-#include <liblightnvm.h>
 
 #define MBA_EXTENT_NAME        "MBA_EXTENT"
 #define MBA_EXTENT_OBJ_SIZE    4096

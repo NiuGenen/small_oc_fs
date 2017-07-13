@@ -6,7 +6,7 @@
 #include "blk_addr.h"
 #include "liblightnvm.h"
 
-extern blk_addr_handle **blk_addr_handlers_of_ch;
+extern BlkAddrHandle* ocssd_bah;
 
 MetaBlkArea::MetaBlkArea(   // first block to store bitmap
     struct nvm_dev * dev,
@@ -37,16 +37,18 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
     meta_blk_addr = new struct blk_addr[ meta_blk_addr_size ];  // all blk_addr of this meta area
     size_t idx = 0;
     for(int ch=st_ch; ch<=ed_ch; ++ch){
+        blk_addr_handle* bah_ch_ = ocssd_bah->get_blk_addr_handle( ch );
         for(size_t i=0; i<addr_nr[ch-st_ch]; ++i){
             meta_blk_addr[ idx ] = st_addr[ ch-st_ch ];
-            blk_addr_handlers_of_ch[ ch ]->BlkAddrAdd( i, &(meta_blk_addr[ idx ]) );
+            bah_ch_->BlkAddrAdd( i, &(meta_blk_addr[ idx ]) );
             idx += 1;
         }
     }
 
     // read bitmap from SSD & build blk_map[],blk_page_map[],blk_page_obj_map[]
     struct nvm_addr first_blk_nvm_addr;
-    blk_addr_handlers_of_ch[ st_ch ]->convert_2_nvm_addr( &(meta_blk_addr[0]), &first_blk_nvm_addr );
+    blk_addr_handle* bah_st_ch_ = ocssd_bah->get_blk_addr_handle( st_ch );
+    bah_st_ch_->convert_2_nvm_addr( &(meta_blk_addr[0]), &first_blk_nvm_addr );
     struct nvm_vblk * first_blk_vblk = nvm_vblk_alloc( dev, &first_blk_nvm_addr, 1 ); 
     
     map_buf_size = geo->npages * geo->page_nbytes; // one block size
@@ -265,7 +267,8 @@ void* MetaBlkArea::read_by_obj_id(Nat_Obj_ID_Type obj_id)
     }
     else{
         struct nvm_addr nvm_addr_;
-        blk_addr_handlers_of_ch[0]->convert_2_nvm_addr(
+        blk_addr_handle* bah_ = ocssd_bah->get_blk_addr_handle( 0 );
+        bah_->convert_2_nvm_addr(
             &( meta_blk_addr[ nat->entry[ obj_id ].blk_idx ] ),
             &nvm_addr_
         );

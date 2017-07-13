@@ -1,6 +1,4 @@
 #include "file_meta_blk_area.h"
-#include "../meta_blk_area.h"
-#include <liblightnvm.h>
 
 #define MBA_FILE_META_NAME "FileMeta"
 #define MBA_FILE_META_OBJ_SIZE 1024

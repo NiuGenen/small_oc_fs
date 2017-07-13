@@ -1,7 +1,7 @@
 #include "blk_addr.h"
-#include <stdlib.h>
-#include <stdio.h>
 #include "liblightnvm.h"
+#include "dbg_info.h"
+#include <iostream>
 
 blk_addr_handle::blk_addr_handle(struct nvm_geo const * g, struct addr_meta const * tm)
 	: geo_(g), tm_(tm), status_(0), format_()
@@ -343,38 +343,36 @@ void blk_addr_handle::PrBlkAddr(struct blk_addr *addr, bool pr_title, const char
 	printf("\n");
 }
 
-///global vars
-struct addr_meta *am;
-blk_addr_handle **blk_addr_handlers_of_ch;	// blk_addr_handle[ 0, nch - 1 ] : each channel one handle
+// global vars
+BlkAddrHandle* ocssd_bah;
 
-size_t nchs;
-
-void addr_init(const struct nvm_geo *g)
+BlkAddrHandle::BlkAddrHandle(const struct nvm_geo* geo)
 {
+	OCSSD_DBG_INFO( this, "BlkAddrHandle(const struct nvm_geo* geo)");
+
+	this->geo_ = geo;
+
 	size_t i;
-	nchs = g->nchannels;
-	
+	this->nchs = geo->nchannels;
+
 	am = (addr_meta *)malloc(sizeof(addr_meta) * nchs);
 	if (!am) {
-		//throw (oc_excpetion("not enough memory", false));
 	}
 
 	blk_addr_handlers_of_ch = (blk_addr_handle **)malloc(sizeof(blk_addr_handle *) * nchs);
 	if (!blk_addr_handlers_of_ch) {
-		addr_release();
-		//throw (oc_excpetion("not enough memory", false));
 	}
 
 	for (i = 0; i < nchs; i++) {
 		am[i].ch = i;
-		am[i].nluns = g->nluns;
+		am[i].nluns = geo->nluns;
 		am[i].stlun = 0;
 
-		blk_addr_handlers_of_ch[i] = new blk_addr_handle(g, am + i);
+		blk_addr_handlers_of_ch[i] = new blk_addr_handle(geo, am + i);
 	}
 }
 
-void addr_release()
+BlkAddrHandle::~BlkAddrHandle()
 {
 	if (am) {
 		free(am);
@@ -386,5 +384,22 @@ void addr_release()
 	}
 	if (blk_addr_handlers_of_ch) {
 		free(blk_addr_handlers_of_ch);
+	}
+}
+
+blk_addr_handle* BlkAddrHandle::get_blk_addr_handle(size_t nch) {
+	if( nch >= nchs ) return nullptr;
+	return blk_addr_handlers_of_ch[nch];
+}
+
+std::string BlkAddrHandle::txt()
+{
+	return "BlkAddrHandle";
+}
+
+void addr_init(const struct nvm_geo *geo)
+{
+    if( ocssd_bah == nullptr ) {
+		ocssd_bah = new BlkAddrHandle(geo);
 	}
 }

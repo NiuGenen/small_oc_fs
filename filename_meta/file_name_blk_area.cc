@@ -1,6 +1,4 @@
 #include "file_name_blk_area.h"
-#include "../meta_blk_area.h"
-#include <liblightnvm.h>
 
 //global var
 MetaBlkArea *mba_file_name;
