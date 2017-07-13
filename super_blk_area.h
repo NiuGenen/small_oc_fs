@@ -1,6 +1,7 @@
 #ifndef _SUPER_BLK_AREA_H_
 #define _SUPER_BLK_AREA_H_
 
+#include <iostream>
 #include <stddef.h>
 #include "blk_addr.h"
 
@@ -128,6 +129,8 @@ private:
     void flush();
     void flush_sb();
     void flush_nat();
+
+    std::string txt();
 };
 
 #endif

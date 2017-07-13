@@ -7,6 +7,7 @@
 #include "liblightnvm.h"
 #include <stdio.h>
 #include <string.h>
+#include "dbg_info.h"
 
 #define OC_DEV_PATH "/dev/nvme0n1"
 #define SUPER_BLK_MAGIC_NUM 0x1234567812345678
@@ -97,6 +98,23 @@ OcssdSuperBlock::OcssdSuperBlock(){
 
     dev = nvm_dev_open( OC_DEV_PATH );
     geo = nvm_dev_get_geo( dev );
+
+    gen_ocssd_geo( geo );
+
+    OCSSD_DBG_INFO( this, "file_min_nr = " << ocssd_geo_.file_min_nr );
+    OCSSD_DBG_INFO( this, "file_max_nr = " << ocssd_geo_.file_max_nr );
+
+    OCSSD_DBG_INFO( this, "fn_obj_nr = " << ocssd_geo_.fn_obj_nr );
+    OCSSD_DBG_INFO( this, "fm_obj_nr = " << ocssd_geo_.fm_obj_nr );
+    OCSSD_DBG_INFO( this, "ext_obj_nr = " << ocssd_geo_.ext_obj_nr );
+
+    OCSSD_DBG_INFO( this, "fn_blk_nr  = " << ocssd_geo_.fn_blk_nr  );
+    OCSSD_DBG_INFO( this, "fm_blk_nr  = " << ocssd_geo_.fm_blk_nr  );
+    OCSSD_DBG_INFO( this, "ext_blk_nr = " << ocssd_geo_.ext_blk_nr );
+
+    OCSSD_DBG_INFO( this, "nat_fn_blk_nr  = " << ocssd_geo_.nat_fn_blk_nr  );
+    OCSSD_DBG_INFO( this, "nat_fm_blk_nr  = " << ocssd_geo_.nat_fm_blk_nr  );
+    OCSSD_DBG_INFO( this, "nat_ext_blk_nr = " << ocssd_geo_.nat_ext_blk_nr );
 
     addr_init( geo );   // init blk_handler
 
@@ -286,6 +304,10 @@ OcssdSuperBlock::~OcssdSuperBlock()
 {
     flush();
     // release pointer
+}
+
+std::string OcssdSuperBlock::txt() {
+    return "OcssdSuperBlock";
 }
 
 void OcssdSuperBlock::flush()

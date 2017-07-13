@@ -2,6 +2,7 @@
 #define _META_BLK_AREA_H_
 
 #include <stddef.h>
+#include <iostream>
 #include "blk_addr.h"	// need one blk_addr_handle to handle meta data blk
 #include "liblightnvm.h"
 
@@ -68,15 +69,15 @@ private:
 	struct blk_addr* meta_blk_addr;
 	size_t meta_blk_addr_size;
 
-	char* map_buf;
+	uint8_t* map_buf;
 	size_t map_buf_size;
 	uint8_t* blk_map;
 	uint8_t** blk_page_map;
 	uint8_t*** blk_page_obj_map;	// bit map
 
 	size_t blk_act;
-	size_t page_act;
-	size_t obj_act;
+	uint16_t page_act;
+	uint8_t obj_act;
 	void act_addr_set_state( uint8_t state );	// update bitmap with current act
 	void find_next_act_blk( size_t start_blk_idx );
 	void act_addr_add(size_t n);
@@ -89,6 +90,7 @@ private:
 	void** obj_cache;
 	char *buf;
 
+	std::string txt();
 	Nat_Obj_Addr_Type find_nat_addr_by_obj_id( Nat_Obj_ID_Type obj_id );
 	struct nvm_addr* convert_nat_addr_to_nvm_addr(Nat_Obj_Addr_Type nat_addr);
 };

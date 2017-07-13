@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include "meta_blk_area.h"
+#include "dbg_info.h"
 #include "blk_addr.h"
 #include "liblightnvm.h"
 
@@ -15,7 +17,7 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
 	struct blk_addr* st_addr, size_t* addr_nr,
 	struct nat_table* nat )
 {
-    uint64_t nat_max_length   =   nat->max_length;
+    size_t nat_max_length   =   nat->max_length;
 
     this->dev               =   dev;
     this->geo               =   geo;
@@ -48,7 +50,7 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
     struct nvm_vblk * first_blk_vblk = nvm_vblk_alloc( dev, &first_blk_nvm_addr, 1 ); 
     
     map_buf_size = geo->npages * geo->page_nbytes; // one block size
-    map_buf =(char*) malloc( map_buf_size );
+    map_buf =(uint8_t*)malloc( map_buf_size );
     size_t map_buf_idx = 0;
     nvm_vblk_read( first_blk_vblk, map_buf, map_buf_size );    // read bitmap
     nvm_vblk_free( first_blk_vblk );
@@ -138,8 +140,7 @@ void MetaBlkArea::find_next_act_blk( size_t last_blk_idx )
 Nat_Obj_ID_Type MetaBlkArea::alloc_obj()
 {
     for(size_t i = 0; i < nat_max_length; ++i ){
-        if( nat->entry[i].is_used == 0 && nat->entry[i].is_dead == 0 ){
-            nat->entry[i].is_used  = 1;
+        if( nat->entry[i].state == NAT_ENTRY_FREE ){
             nat->entry[i].blk_idx  = blk_act;
             nat->entry[i].page     = page_act;
             nat->entry[i].obj      = obj_act;
@@ -147,6 +148,7 @@ Nat_Obj_ID_Type MetaBlkArea::alloc_obj()
             act_addr_add( 1 );
             if( obj_cache[i] != nullptr ){
                 //free( obj_cache[i] );
+                OCSSD_DBG_INFO( this, "obj_cache[ " << i << "] not null.");
                 obj_cache[i] = nullptr;
             }
             return i;
@@ -217,8 +219,7 @@ void MetaBlkArea::act_addr_add(size_t n){
 void MetaBlkArea::de_alloc_obj(Nat_Obj_ID_Type obj_id)
 {
     if( obj_id <=0 || obj_id >= nat_max_length ) return;
-    nat->entry[ obj_id ].is_used = 0;
-    nat->entry[ obj_id ].is_dead = 1;
+    nat->entry[ obj_id ].state = NAT_ENTRY_DEAD;
     nat_dead_nr += 1;                   // for GC
 }
 
@@ -238,21 +239,22 @@ void MetaBlkArea::GC()
 void MetaBlkArea::write_by_obj_id(Nat_Obj_ID_Type obj_id, void* obj)
 {
     if( obj_id <=0 || obj_id >= nat_max_length ) return;
-    if( nat->entry[ obj_id ].is_used == 0 ) return;
+    if( nat->entry[ obj_id ].state == NAT_ENTRY_FREE ||
+            nat->entry[ obj_id ].state == NAT_ENTRY_DEAD ) return;
     if( obj_cache[ obj_id ] != nullptr ){
         //free( obj_cache[i] );
         //obj_cache[i] = obj;
         // memcpy better
         memcpy( obj_cache[ obj_id ], obj, obj_size );
-        nat->entry[ obj_id ].is_used = 1;
-        nat->entry[ obj_id ].is_dead = 1;
+        nat->entry[ obj_id ].state = NAT_ENTRY_MOVE;
     }
 }
 
 void* MetaBlkArea::read_by_obj_id(Nat_Obj_ID_Type obj_id)
 {
     if( obj_id <=0 || obj_id >= nat_max_length ) return nullptr;
-    if( nat->entry[obj_id].is_used == 0 ) return nullptr;
+    if( nat->entry[obj_id].state == NAT_ENTRY_DEAD ||
+            nat->entry[ obj_id ].state == NAT_ENTRY_FREE) return nullptr;
     //if( nat->entry[obj_id].obj_id != obj_id ) return; 
 
     void* ret = malloc( obj_size );
@@ -279,6 +281,11 @@ void* MetaBlkArea::read_by_obj_id(Nat_Obj_ID_Type obj_id)
         memcpy( ret, obj_cache[ obj_id ], obj_size );
         return ret;
     }
+}
+
+std::string MetaBlkArea::txt()
+{
+    return "MetaBlockArea";
 }
 
 // let OcssdSuperBlock to flush NAT

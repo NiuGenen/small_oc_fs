@@ -8,6 +8,10 @@
 #define OCSSD_DBG_ENABLED 1
 #ifdef OCSSD_DBG_ENABLED
 
+#include <iostream>
+#include <sstream>
+#include <iomanip>
+
 inline std::string methodName(const std::string& prettyFunction) {
   size_t begin = 0, end = 0;
 
