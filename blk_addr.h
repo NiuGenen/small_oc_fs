@@ -2,7 +2,7 @@
 #define _BLK_ADDR_H_
 
 #include <stdint.h>
-#include <stddef.h>"
+#include <stddef.h>
 #include <liblightnvm.h>
 #include <sys/types.h>
 

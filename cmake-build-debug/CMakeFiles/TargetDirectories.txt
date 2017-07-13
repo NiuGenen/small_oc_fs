@@ -1,3 +1,3 @@
-C:/Users/60213/Documents/GitHub/KV/small_oc_fs/cmake-build-debug/CMakeFiles/small_oc_fs.dir
-C:/Users/60213/Documents/GitHub/KV/small_oc_fs/cmake-build-debug/CMakeFiles/edit_cache.dir
-C:/Users/60213/Documents/GitHub/KV/small_oc_fs/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/ng/shareDir/small_oc_fs/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/ng/shareDir/small_oc_fs/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/ng/shareDir/small_oc_fs/cmake-build-debug/CMakeFiles/small_oc_fs.dir

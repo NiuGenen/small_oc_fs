@@ -39,7 +39,7 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
     ocssd_geo_.sector_nbytes  = geo->sector_nbytes;
     ocssd_geo_.page_nbytes    = geo->page_nbytes;
     ocssd_geo_.block_nbytes   = geo->npages * geo->page_nbytes;
-    ocssd_geo_.plane_nbytes   = ocssd_geo_.block_nbytes   * geo->nplanes;
+    ocssd_geo_.plane_nbytes   = ocssd_geo_.block_nbytes   * geo->nblocks;
     ocssd_geo_.lun_nbytes     = ocssd_geo_.plane_nbytes   * geo->nplanes;
     ocssd_geo_.channel_nbytes = ocssd_geo_.lun_nbytes     * geo->nluns;
     ocssd_geo_.ssd_nbytes     = ocssd_geo_.channel_nbytes * geo->nchannels;
@@ -60,23 +60,46 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
     ocssd_geo_.fn_btree_degree  = 336;
     ocssd_geo_.ext_btree_degree = 128;
 
+    ocssd_geo_.fn_1LVL_obj_nr  = 1;
+    ocssd_geo_.fn_2LVL_obj_nr  = ocssd_geo_.fn_btree_degree + ocssd_geo_.fn_1LVL_obj_nr;
     ocssd_geo_.fn_3LVL_obj_nr  = ocssd_geo_.fn_btree_degree * ocssd_geo_.fn_btree_degree
-                                + ocssd_geo_.fn_btree_degree
-                                + 1;
+                                + ocssd_geo_.fn_2LVL_obj_nr;
+    ocssd_geo_.fn_1LVL_cnt = ocssd_geo_.fn_1LVL_obj_nr * ocssd_geo_.fn_btree_degree;
+    ocssd_geo_.fn_2LVL_cnt = ocssd_geo_.fn_2LVL_obj_nr * ocssd_geo_.fn_btree_degree;
+    ocssd_geo_.fn_3LVL_cnt = ocssd_geo_.fn_3LVL_obj_nr * ocssd_geo_.fn_btree_degree;
+
+    ocssd_geo_.ext_1LVL_obj_nr = 1;
+    ocssd_geo_.ext_2LVL_obj_nr = ocssd_geo_.ext_btree_degree + ocssd_geo_.ext_1LVL_obj_nr;
     ocssd_geo_.ext_3LVL_obj_nr = ocssd_geo_.ext_btree_degree * ocssd_geo_.ext_btree_degree
-                                + ocssd_geo_.ext_btree_degree
-                                + 1;
+                                + ocssd_geo_.ext_2LVL_obj_nr;
+    ocssd_geo_.ext_1LVL_cnt = ocssd_geo_.ext_1LVL_obj_nr * ocssd_geo_.ext_btree_degree;
+    ocssd_geo_.ext_2LVL_cnt = ocssd_geo_.ext_2LVL_obj_nr * ocssd_geo_.ext_btree_degree;
+    ocssd_geo_.ext_3LVL_cnt = ocssd_geo_.ext_3LVL_obj_nr * ocssd_geo_.ext_btree_degree;
 
     ocssd_geo_.file_ext_nr     = ( ocssd_geo_.fm_obj_nbytes - 248 - 8 ) / ocssd_geo_.extent_des_nbytes;
-    ocssd_geo_.file_min_nbytes = ocssd_geo_.file_ext_nr  * ocssd_geo_.min_ext_addr_nr * ocssd_geo_.block_nbytes;
+    ocssd_geo_.file_min_nbytes = ocssd_geo_.min_ext_addr_nr * ocssd_geo_.block_nbytes;
     ocssd_geo_.file_max_nbytes = ocssd_geo_.file_ext_nr  * ocssd_geo_.max_ext_addr_nr * ocssd_geo_.block_nbytes;
     ocssd_geo_.file_min_nr = ocssd_geo_.ssd_nbytes / ocssd_geo_.file_max_nbytes;
     ocssd_geo_.file_max_nr = ocssd_geo_.ssd_nbytes / ocssd_geo_.file_min_nbytes;
     ocssd_geo_.file_avg_nr = ( ocssd_geo_.file_min_nr + ocssd_geo_.file_max_nr ) / 2;
 
-    ocssd_geo_.fn_obj_nr  = ocssd_geo_.fn_3LVL_obj_nr;
+//    ocssd_geo_.fn_obj_nr  = ocssd_geo_.fn_3LVL_obj_nr;
+    if( ocssd_geo_.file_max_nr <= ocssd_geo_.fn_1LVL_cnt ){
+        ocssd_geo_.fn_obj_nr = ocssd_geo_.fn_1LVL_obj_nr;
+    }else if( ocssd_geo_.file_max_nr <= ocssd_geo_.fn_2LVL_cnt ) {
+        ocssd_geo_.fn_obj_nr = ocssd_geo_.fn_2LVL_obj_nr;
+    }else{ // suppose that file_max_nr <= fn_3LVL_cnt
+        ocssd_geo_.fn_obj_nr = ocssd_geo_.fn_3LVL_obj_nr;
+    }
     ocssd_geo_.fm_obj_nr  = ocssd_geo_.file_max_nr;
-    ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_3LVL_obj_nr;
+//    ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_3LVL_obj_nr;
+    if( ocssd_geo_.file_max_nr <= ocssd_geo_.ext_1LVL_cnt ) {
+        ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_1LVL_obj_nr;
+    }else if( ocssd_geo_.file_max_nr <= ocssd_geo_.ext_2LVL_cnt ){
+        ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_2LVL_obj_nr;
+    }else{ // suppose that file_max_nr <= ext_3LVL_cnt
+        ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_3LVL_obj_nr;
+    }
 
         ocssd_geo_.fn_blk_nr  = ocssd_geo_.fn_obj_nr  / ocssd_geo_.fn_blk_obj_nr  + 1;
         ocssd_geo_.fm_blk_nr  = ocssd_geo_.fm_blk_nr  / ocssd_geo_.fm_blk_obj_nr  + 1;
@@ -101,11 +124,44 @@ OcssdSuperBlock::OcssdSuperBlock(){
 
     gen_ocssd_geo( geo );
 
-    OCSSD_DBG_INFO( this, "file_min_nr = " << ocssd_geo_.file_min_nr );
-    OCSSD_DBG_INFO( this, "file_max_nr = " << ocssd_geo_.file_max_nr );
+    OCSSD_DBG_INFO( this, "OCSSD sector  nr = " << ocssd_geo_.nsectors );
+    OCSSD_DBG_INFO( this, "OCSSD page    nr = " << ocssd_geo_.npages );
+    OCSSD_DBG_INFO( this, "OCSSD block   nr = " << ocssd_geo_.nblocks );
+    OCSSD_DBG_INFO( this, "OCSSD plane   nr = " << ocssd_geo_.nplanes );
+    OCSSD_DBG_INFO( this, "OCSSD lun     nr = " << ocssd_geo_.nluns );
+    OCSSD_DBG_INFO( this, "OCSSD channel nr = " << ocssd_geo_.nchannels );
+    OCSSD_DBG_INFO( this, "OCSSD disk    nr = 1" );
 
-    OCSSD_DBG_INFO( this, "fn_obj_nr = " << ocssd_geo_.fn_obj_nr );
-    OCSSD_DBG_INFO( this, "fm_obj_nr = " << ocssd_geo_.fm_obj_nr );
+    OCSSD_DBG_INFO( this, "OCSSD sector  size = " << ocssd_geo_.sector_nbytes );
+    OCSSD_DBG_INFO( this, "OCSSD page    size = " << ocssd_geo_.page_nbytes );
+    OCSSD_DBG_INFO( this, "OCSSD block   size = " << ocssd_geo_.block_nbytes );
+    OCSSD_DBG_INFO( this, "OCSSD plane   size = " << ocssd_geo_.plane_nbytes );
+    OCSSD_DBG_INFO( this, "OCSSD lun     size = " << ocssd_geo_.lun_nbytes );
+    OCSSD_DBG_INFO( this, "OCSSD channel size = " << ocssd_geo_.channel_nbytes );
+    OCSSD_DBG_INFO( this, "OCSSD disk    size = " << ocssd_geo_.ssd_nbytes );
+
+    OCSSD_DBG_INFO( this, "extent struct     size = " << ocssd_geo_.extent_nbytes );
+    OCSSD_DBG_INFO( this, "extent descriptor size = " << ocssd_geo_.extent_des_nbytes );
+
+    OCSSD_DBG_INFO( this, "file_min_size = " << ocssd_geo_.file_min_nbytes );
+    OCSSD_DBG_INFO( this, "file_max_size = " << ocssd_geo_.file_max_nbytes );
+    OCSSD_DBG_INFO( this, "file_min_nr   = " << ocssd_geo_.file_min_nr );
+    OCSSD_DBG_INFO( this, "file_max_nr   = " << ocssd_geo_.file_max_nr );
+
+    OCSSD_DBG_INFO( this, "fn_btree_degree   = " << ocssd_geo_.fn_btree_degree );
+    OCSSD_DBG_INFO( this, "fn_1LVL_obj_nr    = " << ocssd_geo_.fn_1LVL_obj_nr );
+    OCSSD_DBG_INFO( this, "fn_2LVL_obj_nr    = " << ocssd_geo_.fn_2LVL_obj_nr );
+    OCSSD_DBG_INFO( this, "fn_3LVL_obj_nr    = " << ocssd_geo_.fn_3LVL_obj_nr );
+
+    OCSSD_DBG_INFO( this, "file_max_nr       = " << ocssd_geo_.file_max_nr );
+
+    OCSSD_DBG_INFO( this, "ext_btree_degree  = " << ocssd_geo_.ext_btree_degree );
+    OCSSD_DBG_INFO( this, "ext_1LVL_obj_nr   = " << ocssd_geo_.ext_1LVL_obj_nr );
+    OCSSD_DBG_INFO( this, "ext_2LVL_obj_nr   = " << ocssd_geo_.ext_2LVL_obj_nr );
+    OCSSD_DBG_INFO( this, "ext_3LVL_obj_nr   = " << ocssd_geo_.ext_3LVL_obj_nr );
+
+    OCSSD_DBG_INFO( this, "fn_obj_nr  = " << ocssd_geo_.fn_obj_nr );
+    OCSSD_DBG_INFO( this, "fm_obj_nr  = " << ocssd_geo_.fm_obj_nr );
     OCSSD_DBG_INFO( this, "ext_obj_nr = " << ocssd_geo_.ext_obj_nr );
 
     OCSSD_DBG_INFO( this, "fn_blk_nr  = " << ocssd_geo_.fn_blk_nr  );
@@ -172,9 +228,9 @@ blk_addr_handlers_of_ch[0]->PrBlkAddr( sb_addr, true, " first block of SSD to st
     // struct nar_table* nat_fn;
     // struct nar_table* nat_fm;
     // struct nar_table* nat_ext;
-    printf("[OcssdSuperBlock] fn_nat_max_size  = %llu\n", sb_meta.fn_nat_max_size );
-    printf("[OcssdSuperBlock] fm_nat_max_size  = %llu\n", sb_meta.fm_nat_max_size );
-    printf("[OcssdSuperBlock] ext_nat_max_size = %llu\n", sb_meta.ext_nat_max_size);
+    printf("[OcssdSuperBlock] fn_nat_max_size  = %lu\n", sb_meta.fn_nat_max_size );
+    printf("[OcssdSuperBlock] fm_nat_max_size  = %lu\n", sb_meta.fm_nat_max_size );
+    printf("[OcssdSuperBlock] ext_nat_max_size = %lu\n", sb_meta.ext_nat_max_size);
     nat_fn  = new struct nat_table;
     nat_fm  = new struct nat_table;
     nat_ext = new struct nat_table;

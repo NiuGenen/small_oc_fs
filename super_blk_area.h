@@ -48,7 +48,12 @@ private:
         size_t fn_btree_degree;  //  336
         size_t fn_obj_nbytes;    //  4096
         size_t fn_blk_obj_nr;    //  block_nbytes / fn_obj_nbytes
+        size_t fn_1LVL_obj_nr;   //  fn_btree_degree * fn_btree_degree + fn_btree_degree + 1
+        size_t fn_2LVL_obj_nr;   //  fn_btree_degree * fn_btree_degree + fn_btree_degree + 1
         size_t fn_3LVL_obj_nr;   //  fn_btree_degree * fn_btree_degree + fn_btree_degree + 1
+        size_t fn_1LVL_cnt;
+        size_t fn_2LVL_cnt;
+        size_t fn_3LVL_cnt;
         size_t fn_obj_nr;
         size_t fn_blk_nr;        //  fn_3LVL_obj_nr / fn_blk_obj_nr + 1
 
@@ -60,7 +65,12 @@ private:
         size_t ext_btree_degree;  //  128
         size_t ext_obj_nbytes;    //  4096
         size_t ext_blk_obj_nr;    //  block_nbytes / ext_obj_nbytes
+        size_t ext_1LVL_obj_nr;   //  ext_btree_degree * ext_btree_degree + ext_btree_degree + 1
+        size_t ext_2LVL_obj_nr;   //  ext_btree_degree * ext_btree_degree + ext_btree_degree + 1
         size_t ext_3LVL_obj_nr;   //  ext_btree_degree * ext_btree_degree + ext_btree_degree + 1
+        size_t ext_1LVL_cnt;
+        size_t ext_2LVL_cnt;
+        size_t ext_3LVL_cnt;
         size_t ext_obj_nr;
         size_t ext_blk_nr;        //  ext_3LVL_obj_nr / ext_blk_obj_nr + 1
 

@@ -100,7 +100,7 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
     obj_cache = (void**) malloc( sizeof(void*) * nat_max_length );
 }
 
-void MetaBlkArea::~MetaBlkArea()
+MetaBlkArea::~MetaBlkArea()
 {
 
 }
