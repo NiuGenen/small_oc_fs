@@ -55,12 +55,18 @@ private:
         size_t fn_2LVL_cnt;
         size_t fn_3LVL_cnt;
         size_t fn_obj_nr;
-        size_t fn_blk_nr;        //  fn_3LVL_obj_nr / fn_blk_obj_nr + 1
+        size_t fn_data_blk_nr;        //  fn_3LVL_obj_nr / fn_blk_obj_nr + 1
+        size_t fn_bitmap_nr;
+        size_t fn_bitmap_blk_nr;
+        size_t fn_blk_nr;
 
         size_t fm_obj_nbytes;   //  1024
         size_t fm_blk_obj_nr;
         size_t fm_obj_nr;       //  file_max_nr
-        size_t fm_blk_nr;       //  fm_obj_nr * fm_obj_nbytes / block_nbytes + 1
+        size_t fm_data_blk_nr;       //  fm_obj_nr * fm_obj_nbytes / block_nbytes + 1
+        size_t fm_bitmap_nr;
+        size_t fm_bitmap_blk_nr;
+        size_t fm_blk_nr;
 
         size_t ext_btree_degree;  //  128
         size_t ext_obj_nbytes;    //  4096
@@ -72,7 +78,10 @@ private:
         size_t ext_2LVL_cnt;
         size_t ext_3LVL_cnt;
         size_t ext_obj_nr;
-        size_t ext_blk_nr;        //  ext_3LVL_obj_nr / ext_blk_obj_nr + 1
+        size_t ext_data_blk_nr;        //  ext_3LVL_obj_nr / ext_blk_obj_nr + 1
+        size_t ext_bitmap_nr;
+        size_t ext_bitmap_blk_nr;        //  ext_3LVL_obj_nr / ext_blk_obj_nr + 1
+        size_t ext_blk_nr;
 
         size_t nat_entry_nbytes;    //  16 = 8(ID) + 4(blk) + 2(page) + 1(obj) + 1(state)
         size_t nat_fn_entry_nr;     //  fn_3LVL_obj_nr

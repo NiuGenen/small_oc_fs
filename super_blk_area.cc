@@ -20,13 +20,18 @@ extern BlkAddrHandle* ocssd_bah;
 //              blk[0]  super_block_meta
 //              blk[1]  - fn_nat
 //              blk[2]  ┐
-//              blk[3]  | fm_nat
+//              blk[3]  | fm_nat       NAT: [ obj_id ] --  |blk|page|obj|
 //              blk[4]  ┘
 //              blk[5]  - ext_nat
 // all channel
 //              blks    fn_obj      [0,map_size-1]:bitmap [map_size,size-1]:obj
 //              blks    fm_obj      [0,map_size-1]:bitmap [map_size,size-1]:obj
 //              blks    ext_obj     [0,map_size-1]:bitmap [map_size,size-1]:obj
+//                       |  bitmap name     |  size                |  type                                    |
+//                       |------------------|----------------------|------------------------------------------|
+//                       | blk_map          |  blk_nr              |  uint8_t[ blk_nr ]                       |
+//                       | blk_page_map     |  blk_nr * npages     |  uint8_t[ blk_nr ][ npages ]             |
+//                       | blk_page_obj_map |  blk_nr * blk_obj_nr |  uint8_t[ blk_nr ][ napges ][ obj_nr ]   |
 //
 void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
     ocssd_geo_.nchannels = geo->nchannels;
@@ -101,9 +106,9 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
         ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_3LVL_obj_nr;
     }
 
-        ocssd_geo_.fn_blk_nr  = ocssd_geo_.fn_obj_nr  / ocssd_geo_.fn_blk_obj_nr  + 1;
-        ocssd_geo_.fm_blk_nr  = ocssd_geo_.fm_blk_nr  / ocssd_geo_.fm_blk_obj_nr  + 1;
-        ocssd_geo_.ext_blk_nr = ocssd_geo_.ext_obj_nr / ocssd_geo_.ext_blk_obj_nr + 1;
+        ocssd_geo_.fn_data_blk_nr  = ocssd_geo_.fn_obj_nr  / ocssd_geo_.fn_blk_obj_nr  + 1;
+        ocssd_geo_.fm_data_blk_nr  = ocssd_geo_.fm_data_blk_nr  / ocssd_geo_.fm_blk_obj_nr  + 1;
+        ocssd_geo_.ext_data_blk_nr = ocssd_geo_.ext_obj_nr / ocssd_geo_.ext_blk_obj_nr + 1;
 
     ocssd_geo_.nat_entry_nbytes = 16;   // 16 = 8(ID) + 4(blk) + 2(page) + 1(obj) + 1(state)
     ocssd_geo_.nat_fn_entry_nr  = ocssd_geo_.fn_3LVL_obj_nr;
@@ -113,6 +118,25 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
         ocssd_geo_.nat_fn_blk_nr  = ocssd_geo_.nat_fn_entry_nr  * ocssd_geo_.nat_entry_nbytes / ocssd_geo_.block_nbytes + 1;
         ocssd_geo_.nat_fm_blk_nr  = ocssd_geo_.nat_fm_entry_nr  * ocssd_geo_.nat_entry_nbytes / ocssd_geo_.block_nbytes + 1;
         ocssd_geo_.nat_ext_blk_nr = ocssd_geo_.nat_ext_entry_nr * ocssd_geo_.nat_entry_nbytes / ocssd_geo_.block_nbytes + 1;
+
+    ocssd_geo_.fn_bitmap_nr = ocssd_geo_.fn_data_blk_nr  // blk_map[ blk_nr ]
+                                + ocssd_geo_.fn_data_blk_nr * ocssd_geo_.npages  // blk_page_map[ blk_nr ][ napges ]
+                                + ocssd_geo_.fn_data_blk_nr * ocssd_geo_.fn_blk_obj_nr;  // blk_page_obj_map[ blk_nr ][ napges ][ obj_nr ]
+    ocssd_geo_.fn_bitmap_blk_nr = ocssd_geo_.fn_bitmap_nr / ocssd_geo_.block_nbytes + 1;
+
+    ocssd_geo_.fm_bitmap_nr = ocssd_geo_.fm_data_blk_nr
+                                + ocssd_geo_.fm_data_blk_nr * ocssd_geo_.npages
+                                + ocssd_geo_.fm_data_blk_nr * ocssd_geo_.fm_blk_obj_nr;
+    ocssd_geo_.fm_bitmap_blk_nr = ocssd_geo_.fm_bitmap_nr / ocssd_geo_.block_nbytes + 1;
+
+    ocssd_geo_.ext_bitmap_nr = ocssd_geo_.ext_data_blk_nr
+                                + ocssd_geo_.ext_data_blk_nr * ocssd_geo_.npages
+                                + ocssd_geo_.ext_data_blk_nr * ocssd_geo_.fm_blk_obj_nr;
+    ocssd_geo_.ext_bitmap_blk_nr = ocssd_geo_.ext_bitmap_nr / ocssd_geo_.block_nbytes + 1;
+
+    ocssd_geo_.fn_blk_nr  = ocssd_geo_.fn_data_blk_nr + ocssd_geo_.fn_bitmap_blk_nr;
+    ocssd_geo_.fm_blk_nr  = ocssd_geo_.fm_data_blk_nr + ocssd_geo_.fm_bitmap_blk_nr;
+    ocssd_geo_.ext_blk_nr = ocssd_geo_.ext_data_blk_nr + ocssd_geo_.ext_bitmap_blk_nr;
 }
 
 OcssdSuperBlock::OcssdSuperBlock(){
@@ -164,13 +188,21 @@ OcssdSuperBlock::OcssdSuperBlock(){
     OCSSD_DBG_INFO( this, "fm_obj_nr  = " << ocssd_geo_.fm_obj_nr );
     OCSSD_DBG_INFO( this, "ext_obj_nr = " << ocssd_geo_.ext_obj_nr );
 
-    OCSSD_DBG_INFO( this, "fn_blk_nr  = " << ocssd_geo_.fn_blk_nr  );
-    OCSSD_DBG_INFO( this, "fm_blk_nr  = " << ocssd_geo_.fm_blk_nr  );
-    OCSSD_DBG_INFO( this, "ext_blk_nr = " << ocssd_geo_.ext_blk_nr );
+    OCSSD_DBG_INFO( this, "fn_data_blk_nr  = " << ocssd_geo_.fn_data_blk_nr  );
+    OCSSD_DBG_INFO( this, "fm_data_blk_nr  = " << ocssd_geo_.fm_data_blk_nr  );
+    OCSSD_DBG_INFO( this, "ext_data_blk_nr = " << ocssd_geo_.ext_data_blk_nr );
 
     OCSSD_DBG_INFO( this, "nat_fn_blk_nr  = " << ocssd_geo_.nat_fn_blk_nr  );
     OCSSD_DBG_INFO( this, "nat_fm_blk_nr  = " << ocssd_geo_.nat_fm_blk_nr  );
     OCSSD_DBG_INFO( this, "nat_ext_blk_nr = " << ocssd_geo_.nat_ext_blk_nr );
+
+    OCSSD_DBG_INFO( this, "fn_bitmap_blk_nr  = " << ocssd_geo_.fn_bitmap_blk_nr  );
+    OCSSD_DBG_INFO( this, "fm_bitmap_blk_nr  = " << ocssd_geo_.fm_bitmap_blk_nr  );
+    OCSSD_DBG_INFO( this, "ext_bitmap_blk_nr = " << ocssd_geo_.ext_bitmap_blk_nr );
+
+    OCSSD_DBG_INFO( this, "fn_blk_nr  = " << ocssd_geo_.fn_blk_nr  );
+    OCSSD_DBG_INFO( this, "fm_blk_nr  = " << ocssd_geo_.fm_blk_nr  );
+    OCSSD_DBG_INFO( this, "ext_blk_nr = " << ocssd_geo_.ext_blk_nr );
 
     addr_init( geo );   // init blk_handler
 
@@ -312,21 +344,21 @@ bah_0_->PrBlkAddr( sb_addr, true, " first block of SSD to store sb_meta.");
     size_t* fn_blk_nr = new size_t[ sb_meta.fn_ch_nr ];
     for(int ch=sb_meta.fn_st_ch; ch<sb_meta.fn_ed_ch; ++ch){
         //ocssd_bah->get_blk_addr_handle(ch)->.MakeBlkAddr( , , , , fn_st_blk[ ch - sb_meta.fn_st_ch ]);
-        //fn_blk_nr[ ch - sb_meta.fn_st_ch ] = ;
+        //fn_data_blk_nr[ ch - sb_meta.fn_st_ch ] = ;
     }
 
     struct blk_addr* fm_st_blk  = new struct blk_addr[ sb_meta.fm_ch_nr ];
     size_t* fm_blk_nr = new size_t[ sb_meta.fm_ch_nr ];
     for(int ch=sb_meta.fm_st_ch; ch<sb_meta.fm_ed_ch; ++ch){
         //ocssd_bah->get_blk_addr_handle(ch)->MakeBlkAddr( , , , , fm_st_blk[ ch - sb_meta.fm_st_ch ]);
-        //fm_blk_nr[ ch - sb_meta.fm_st_ch ] = ;
+        //fm_data_blk_nr[ ch - sb_meta.fm_st_ch ] = ;
     }
 
     struct blk_addr* ext_st_blk = new struct blk_addr[ sb_meta.ext_ch_nr ];
     size_t* ext_blk_nr = new size_t[ sb_meta.ext_ch_nr ];
     for(int ch=sb_meta.ext_st_ch; ch<sb_meta.ext_ed_ch; ++ch){
         //ocssd_bah->get_blk_addr_handle(ch)->MakeBlkAddr( , , , , ext_st_blk[ ch - sb_meta.ext_st_ch ]);
-        //ext_blk_nr[ ch - sb_meta.ext_st_ch ] = ;
+        //ext_data_blk_nr[ ch - sb_meta.ext_st_ch ] = ;
     }
 
 	// struct nvm_dev* dev,
