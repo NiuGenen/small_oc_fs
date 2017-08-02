@@ -13,6 +13,7 @@ public:
 private:
     struct nvm_dev* dev;
     const struct nvm_geo* geo;
+    struct nvm_geo* test_geo;
 
     void gen_ocssd_geo(const nvm_geo* geo);
 
@@ -99,9 +100,9 @@ private:
     struct ocssd_super_block_meta{
         uint64_t magic_num;
 
-        uint32_t fn_nat_blk_nr;
-        uint32_t fm_nat_blk_nr;
-        uint32_t ext_nat_blk_nr;
+        uint64_t fn_nat_blk_nr;
+        uint64_t fm_nat_blk_nr;
+        uint64_t ext_nat_blk_nr;
 
         uint64_t fn_nat_max_size;
         uint64_t fm_nat_max_size;
@@ -115,17 +116,17 @@ private:
         uint32_t fm_ch_nr;   // uint32_t fm_st_blk_idx  [ fm_ch_nr  ]      uint32_t fm_blk_nr  [ fm_ch_nr  ]
         uint32_t ext_ch_nr;  // uint32_t ext_st_blk_idx [ ext_ch_nr ]      uint32_t ext_blk_nr [ ext_ch_nr ]
 
-        uint32_t fn_obj_size;
-        uint32_t fm_obj_size;
-        uint32_t ext_obj_size;
+        uint64_t fn_obj_size;
+        uint64_t fm_obj_size;
+        uint64_t ext_obj_size;
     };
     uint32_t* fn_st_blk_idx;
     uint32_t* fm_st_blk_idx;
     uint32_t* ext_st_blk_idx;
 
-    uint32_t* fn_blk_nr;
-    uint32_t* fm_blk_nr;
-    uint32_t* ext_blk_nr;
+    size_t* fn_blk_nr;
+    size_t* fm_blk_nr;
+    size_t* ext_blk_nr;
 
     struct blk_addr* sb_addr;
     struct nvm_vblk* sb_vblk;

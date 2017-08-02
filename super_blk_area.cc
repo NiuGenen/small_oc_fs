@@ -34,6 +34,8 @@ extern BlkAddrHandle* ocssd_bah;
 //                       | blk_page_obj_map |  blk_nr * blk_obj_nr |  uint8_t[ blk_nr ][ napges ][ obj_nr ]   |
 //
 void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
+    OCSSD_DBG_INFO( this, " gen ocssd_geo");
+
     ocssd_geo_.nchannels = geo->nchannels;
     ocssd_geo_.nluns     = geo->nluns;
     ocssd_geo_.nplanes   = geo->nplanes;
@@ -88,27 +90,29 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
     ocssd_geo_.file_max_nr = ocssd_geo_.ssd_nbytes / ocssd_geo_.file_min_nbytes;
     ocssd_geo_.file_avg_nr = ( ocssd_geo_.file_min_nr + ocssd_geo_.file_max_nr ) / 2;
 
-//    ocssd_geo_.fn_obj_nr  = ocssd_geo_.fn_3LVL_obj_nr;
-    if( ocssd_geo_.file_max_nr <= ocssd_geo_.fn_1LVL_cnt ){
-        ocssd_geo_.fn_obj_nr = ocssd_geo_.fn_1LVL_obj_nr;
-    }else if( ocssd_geo_.file_max_nr <= ocssd_geo_.fn_2LVL_cnt ) {
-        ocssd_geo_.fn_obj_nr = ocssd_geo_.fn_2LVL_obj_nr;
-    }else{ // suppose that file_max_nr <= fn_3LVL_cnt
-        ocssd_geo_.fn_obj_nr = ocssd_geo_.fn_3LVL_obj_nr;
-    }
+    ocssd_geo_.fn_obj_nr  = ocssd_geo_.fn_3LVL_obj_nr;
+//    if( ocssd_geo_.file_max_nr <= ocssd_geo_.fn_1LVL_cnt ){
+//        ocssd_geo_.fn_obj_nr = ocssd_geo_.fn_1LVL_obj_nr;
+//    }else if( ocssd_geo_.file_max_nr <= ocssd_geo_.fn_2LVL_cnt ) {
+//        ocssd_geo_.fn_obj_nr = ocssd_geo_.fn_2LVL_obj_nr;
+//    }else{ // suppose that file_max_nr <= fn_3LVL_cnt
+//        ocssd_geo_.fn_obj_nr = ocssd_geo_.fn_3LVL_obj_nr;
+//    }
     ocssd_geo_.fm_obj_nr  = ocssd_geo_.file_max_nr;
-//    ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_3LVL_obj_nr;
-    if( ocssd_geo_.file_max_nr <= ocssd_geo_.ext_1LVL_cnt ) {
-        ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_1LVL_obj_nr;
-    }else if( ocssd_geo_.file_max_nr <= ocssd_geo_.ext_2LVL_cnt ){
-        ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_2LVL_obj_nr;
-    }else{ // suppose that file_max_nr <= ext_3LVL_cnt
-        ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_3LVL_obj_nr;
-    }
+    ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_3LVL_obj_nr;
+//    if( ocssd_geo_.file_max_nr <= ocssd_geo_.ext_1LVL_cnt ) {
+//        ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_1LVL_obj_nr;
+//    }else if( ocssd_geo_.file_max_nr <= ocssd_geo_.ext_2LVL_cnt ){
+//        ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_2LVL_obj_nr;
+//    }else{ // suppose that file_max_nr <= ext_3LVL_cnt
+//        ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_3LVL_obj_nr;
+//    }
 
         ocssd_geo_.fn_data_blk_nr  = ocssd_geo_.fn_obj_nr  / ocssd_geo_.fn_blk_obj_nr  + 1;
         ocssd_geo_.fm_data_blk_nr  = ocssd_geo_.fm_obj_nr  / ocssd_geo_.fm_blk_obj_nr  + 1;
         ocssd_geo_.ext_data_blk_nr = ocssd_geo_.ext_obj_nr / ocssd_geo_.ext_blk_obj_nr + 1;
+
+        ocssd_geo_.fm_data_blk_nr  *= 3;
 
     ocssd_geo_.nat_entry_nbytes = 16;   // 16 = 8(ID) + 4(blk) + 2(page) + 1(obj) + 1(state)
     ocssd_geo_.nat_fn_entry_nr  = ocssd_geo_.fn_3LVL_obj_nr;
@@ -139,6 +143,7 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
     ocssd_geo_.ext_blk_nr = ocssd_geo_.ext_data_blk_nr + ocssd_geo_.ext_bitmap_blk_nr;
 
     // super block meta
+    OCSSD_DBG_INFO( this, " gen ocssd super block");
     sb_meta.magic_num = SUPER_BLK_MAGIC_NUM;
 
     sb_meta.fn_obj_size  = ocssd_geo_.fn_obj_nbytes ;
@@ -161,7 +166,7 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
         blk_idx[i] = 1;
     }
 
-    size_t nchs = ocssd_geo_.nchannels;
+    uint32_t nchs = ocssd_geo_.nchannels;
     this->fn_st_blk_idx  = new uint32_t[ nchs ];
     this->fm_st_blk_idx  = new uint32_t[ nchs ];
     this->ext_st_blk_idx = new uint32_t[ nchs ];    // 0 means NOT SET yet
@@ -170,11 +175,11 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
         fm_st_blk_idx [ i ] = 0;
         ext_st_blk_idx[ i ] = 0;
     }
-    this->fn_blk_nr  = new uint32_t[ nchs ];
-    this->fm_blk_nr  = new uint32_t[ nchs ];
-    this->ext_blk_nr = new uint32_t[ nchs ];
+    this->fn_blk_nr  = new size_t[ nchs ];
+    this->fm_blk_nr  = new size_t[ nchs ];
+    this->ext_blk_nr = new size_t[ nchs ];
 
-    size_t ch = 0;
+    uint32_t ch = 0;
 
     size_t idx = 0;
     sb_meta.fn_st_ch = ch;
@@ -236,6 +241,17 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
         }
     }
 
+    for(uint32_t i = 0; i < sb_meta.fn_ch_nr; ++i){
+        this->fn_st_blk_idx[ i ] -= 1;
+    }
+    for(uint32_t i = 0; i < sb_meta.fm_ch_nr; ++i){
+        this->fm_st_blk_idx[ i ] -= 1;
+    }
+    for(uint32_t i = 0; i < sb_meta.ext_ch_nr; ++i){
+        this->ext_st_blk_idx[ i ] -= 1;
+    }
+
+    OCSSD_DBG_INFO( this, " gen over");
 }
 
 OcssdSuperBlock::OcssdSuperBlock(){
@@ -245,7 +261,52 @@ OcssdSuperBlock::OcssdSuperBlock(){
     dev = nvm_dev_open( OC_DEV_PATH );
     geo = nvm_dev_get_geo( dev );
 
+    test_geo = new struct nvm_geo;
+    test_geo->nchannels = 16;
+    test_geo->nluns = 8;
+    test_geo->nplanes = 1;
+    test_geo->nblocks = 2048;
+    test_geo->npages = 2048;
+    test_geo->nsectors = 1;
+    test_geo->sector_nbytes = 4096;
+    test_geo->page_nbytes = 4096;
+
+    geo = test_geo;
+
     gen_ocssd_geo( geo );
+
+    OCSSD_DBG_INFO( this, "geo -> nchannels = " << ocssd_geo_.nchannels );
+    OCSSD_DBG_INFO( this, "geo -> nluns     = " << ocssd_geo_.nluns     );
+    OCSSD_DBG_INFO( this, "geo -> nplanes   = " << ocssd_geo_.nplanes   );
+    OCSSD_DBG_INFO( this, "geo -> nblocks   = " << ocssd_geo_.nblocks   );
+    OCSSD_DBG_INFO( this, "geo -> npages    = " << ocssd_geo_.npages    );
+    OCSSD_DBG_INFO( this, "geo -> nsectors  = " << ocssd_geo_.nsectors  );
+
+    OCSSD_DBG_INFO( this, "size -> ssd     = " << ocssd_geo_.ssd_nbytes );
+    OCSSD_DBG_INFO( this, "size -> channel = " << ocssd_geo_.channel_nbytes );
+    OCSSD_DBG_INFO( this, "size -> lun     = " << ocssd_geo_.lun_nbytes );
+    OCSSD_DBG_INFO( this, "size -> plane   = " << ocssd_geo_.plane_nbytes );
+    OCSSD_DBG_INFO( this, "size -> block   = " << ocssd_geo_.block_nbytes );
+    OCSSD_DBG_INFO( this, "size -> page    = " << ocssd_geo_.page_nbytes );
+
+    OCSSD_DBG_INFO( this, "===========================");
+
+    OCSSD_DBG_INFO( this, "file_max_size = " << ocssd_geo_.file_max_nbytes );
+    OCSSD_DBG_INFO( this, "file_min_size = " << ocssd_geo_.file_min_nbytes );
+    OCSSD_DBG_INFO( this, "file_max_nr = " << ocssd_geo_.file_max_nr );
+    OCSSD_DBG_INFO( this, "file_min_nr = " << ocssd_geo_.file_min_nr );
+    OCSSD_DBG_INFO( this, "file_avg_nr = " << ocssd_geo_.file_avg_nr );
+
+    OCSSD_DBG_INFO( this, "===========================");
+
+    OCSSD_DBG_INFO( this, "fn_1LVL_obj_nr = " << ocssd_geo_.fn_1LVL_obj_nr );
+    OCSSD_DBG_INFO( this, "fn_2LVL_obj_nr = " << ocssd_geo_.fn_2LVL_obj_nr );
+    OCSSD_DBG_INFO( this, "fn_3LVL_obj_nr = " << ocssd_geo_.fn_3LVL_obj_nr );
+    OCSSD_DBG_INFO( this, "ext_1LVL_obj_nr = " << ocssd_geo_.ext_1LVL_obj_nr );
+    OCSSD_DBG_INFO( this, "ext_2LVL_obj_nr = " << ocssd_geo_.ext_2LVL_obj_nr );
+    OCSSD_DBG_INFO( this, "ext_3LVL_obj_nr = " << ocssd_geo_.ext_3LVL_obj_nr );
+
+    OCSSD_DBG_INFO( this, "===========================");
 
     OCSSD_DBG_INFO( this, "nat_fn_blk_nr  = " << ocssd_geo_.nat_fn_blk_nr  );
     OCSSD_DBG_INFO( this, "nat_fm_blk_nr  = " << ocssd_geo_.nat_fm_blk_nr  );
@@ -268,6 +329,10 @@ OcssdSuperBlock::OcssdSuperBlock(){
     OCSSD_DBG_INFO( this, "ext_blk_nr = " << ocssd_geo_.ext_blk_nr );
 
     OCSSD_DBG_INFO( this, "==========================");
+
+    OCSSD_DBG_INFO( this, "fn_st_ch  = " << sb_meta.fn_st_ch  );
+    OCSSD_DBG_INFO( this, "fm_st_ch  = " << sb_meta.fm_st_ch  );
+    OCSSD_DBG_INFO( this, "ext_st_ch = " << sb_meta.ext_st_ch );
 
     OCSSD_DBG_INFO( this, "fn_ch_nr  = " << sb_meta.fn_ch_nr  );
     OCSSD_DBG_INFO( this, "fm_ch_nr  = " << sb_meta.fm_ch_nr  );
