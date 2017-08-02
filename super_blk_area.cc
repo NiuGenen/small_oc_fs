@@ -107,7 +107,7 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
     }
 
         ocssd_geo_.fn_data_blk_nr  = ocssd_geo_.fn_obj_nr  / ocssd_geo_.fn_blk_obj_nr  + 1;
-        ocssd_geo_.fm_data_blk_nr  = ocssd_geo_.fm_data_blk_nr  / ocssd_geo_.fm_blk_obj_nr  + 1;
+        ocssd_geo_.fm_data_blk_nr  = ocssd_geo_.fm_obj_nr  / ocssd_geo_.fm_blk_obj_nr  + 1;
         ocssd_geo_.ext_data_blk_nr = ocssd_geo_.ext_obj_nr / ocssd_geo_.ext_blk_obj_nr + 1;
 
     ocssd_geo_.nat_entry_nbytes = 16;   // 16 = 8(ID) + 4(blk) + 2(page) + 1(obj) + 1(state)
