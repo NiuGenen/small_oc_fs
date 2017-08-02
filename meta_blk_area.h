@@ -20,19 +20,19 @@ struct nat_entry{
 	uint8_t state;
 };//	8 + 4 + 2 + 1 + 1 = 16
 
-#define NAT_ENTRY_FREE	0
-#define NAT_ENTRY_USED	1
-#define NAT_ENTRY_DEAD	2
-#define NAT_ENTRY_MOVE	3
+#define NAT_ENTRY_FREE	0	// free to alloc
+#define NAT_ENTRY_USED	1	// already in use
+#define NAT_ENTRY_DEAD	2	// been de_alloced
+#define NAT_ENTRY_MOVE	4	// been writed
 
 struct nat_table{
 	struct nat_entry* entry;
 	uint64_t max_length;
 };
 
-#define MBA_MAP_STATE_FREE 0
-#define MBA_MAP_STATE_USED 1 
-#define MBA_MAP_STATE_FULL 2 // for bit map to alloc new obj
+#define MBA_MAP_STATE_FREE 0 // all is free to use
+#define MBA_MAP_STATE_USED 1 // part is used & part is free
+#define MBA_MAP_STATE_FULL 2 // all is in use
 
 // meta blk area
 class MetaBlkArea{

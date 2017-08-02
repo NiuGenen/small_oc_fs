@@ -9,7 +9,7 @@ MetaBlkArea *mba_extent;
 void extent_blk_area_init(
 	struct nvm_dev* dev,
     const struct nvm_geo* geo,
-	uint32_t st_ch, uint32_t ed_ch,
+	uint32_t st_ch, uint32_t ch_nr,
 	struct blk_addr* st_addr, size_t* addr_nr,
 	struct nat_table* nat )
 {
@@ -17,7 +17,7 @@ void extent_blk_area_init(
         dev, geo,
         MBA_EXTENT_OBJ_SIZE,
         MBA_EXTENT_NAME,
-        st_ch, ed_ch,
+        st_ch, ch_nr,
         st_addr, addr_nr,
         nat
     );

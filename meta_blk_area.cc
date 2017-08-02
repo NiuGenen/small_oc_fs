@@ -13,7 +13,7 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
     const struct nvm_geo* geo,
 	size_t obj_size,
 	const char* mba_name,
-	uint32_t st_ch, uint32_t ed_ch,
+	uint32_t st_ch, uint32_t ch_nr,
 	struct blk_addr* st_addr, size_t* addr_nr,
 	struct nat_table* nat )
 {
@@ -31,12 +31,12 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
     // meta_blk_addr[0] contains bitmap
     // meta_blk_addr[1, size-1] contains obj
     meta_blk_addr_size = 0;
-    for(int ch=st_ch; ch<=ed_ch; ++ch){
+    for(uint32_t ch=st_ch, count = 0; count < ch_nr; ++count){
         meta_blk_addr_size += addr_nr[ ch - st_ch ];
     }
     meta_blk_addr = new struct blk_addr[ meta_blk_addr_size ];  // all blk_addr of this meta area
     size_t idx = 0;
-    for(int ch=st_ch; ch<=ed_ch; ++ch){
+    for(uint32_t ch=st_ch, count=0; count<ch_nr; ++count){
         blk_addr_handle* bah_ch_ = ocssd_bah->get_blk_addr_handle( ch );
         for(size_t i=0; i<addr_nr[ch-st_ch]; ++i){
             meta_blk_addr[ idx ] = st_addr[ ch-st_ch ];
