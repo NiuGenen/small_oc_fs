@@ -90,29 +90,33 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
     ocssd_geo_.file_max_nr = ocssd_geo_.ssd_nbytes / ocssd_geo_.file_min_nbytes;
     ocssd_geo_.file_avg_nr = ( ocssd_geo_.file_min_nr + ocssd_geo_.file_max_nr ) / 2;
 
-    ocssd_geo_.fn_obj_nr  = ocssd_geo_.fn_3LVL_obj_nr;
-//    if( ocssd_geo_.file_max_nr <= ocssd_geo_.fn_1LVL_cnt ){
-//        ocssd_geo_.fn_obj_nr = ocssd_geo_.fn_1LVL_obj_nr;
-//    }else if( ocssd_geo_.file_max_nr <= ocssd_geo_.fn_2LVL_cnt ) {
-//        ocssd_geo_.fn_obj_nr = ocssd_geo_.fn_2LVL_obj_nr;
-//    }else{ // suppose that file_max_nr <= fn_3LVL_cnt
-//        ocssd_geo_.fn_obj_nr = ocssd_geo_.fn_3LVL_obj_nr;
-//    }
+//    ocssd_geo_.fn_obj_nr  = ocssd_geo_.fn_3LVL_obj_nr;
+    if( ocssd_geo_.file_max_nr <= ocssd_geo_.fn_1LVL_cnt ){
+        ocssd_geo_.fn_obj_nr = ocssd_geo_.fn_1LVL_obj_nr;
+    }else if( ocssd_geo_.file_max_nr <= ocssd_geo_.fn_2LVL_cnt ) {
+        ocssd_geo_.fn_obj_nr = ocssd_geo_.fn_2LVL_obj_nr;
+    }else{ // suppose that file_max_nr <= fn_3LVL_cnt
+        ocssd_geo_.fn_obj_nr = ocssd_geo_.fn_3LVL_obj_nr;
+    }
     ocssd_geo_.fm_obj_nr  = ocssd_geo_.file_max_nr;
-    ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_3LVL_obj_nr;
-//    if( ocssd_geo_.file_max_nr <= ocssd_geo_.ext_1LVL_cnt ) {
-//        ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_1LVL_obj_nr;
-//    }else if( ocssd_geo_.file_max_nr <= ocssd_geo_.ext_2LVL_cnt ){
-//        ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_2LVL_obj_nr;
-//    }else{ // suppose that file_max_nr <= ext_3LVL_cnt
-//        ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_3LVL_obj_nr;
-//    }
+//    ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_3LVL_obj_nr;
+    if( ocssd_geo_.file_max_nr <= ocssd_geo_.ext_1LVL_cnt ) {
+        ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_1LVL_obj_nr;
+    }else if( ocssd_geo_.file_max_nr <= ocssd_geo_.ext_2LVL_cnt ){
+        ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_2LVL_obj_nr;
+    }else{ // suppose that file_max_nr <= ext_3LVL_cnt
+        ocssd_geo_.ext_obj_nr = ocssd_geo_.ext_3LVL_obj_nr;
+    }
 
         ocssd_geo_.fn_data_blk_nr  = ocssd_geo_.fn_obj_nr  / ocssd_geo_.fn_blk_obj_nr  + 1;
         ocssd_geo_.fm_data_blk_nr  = ocssd_geo_.fm_obj_nr  / ocssd_geo_.fm_blk_obj_nr  + 1;
         ocssd_geo_.ext_data_blk_nr = ocssd_geo_.ext_obj_nr / ocssd_geo_.ext_blk_obj_nr + 1;
 
+    if( ocssd_geo_.fn_obj_nr  < ocssd_geo_.fn_3LVL_obj_nr  )
+        ocssd_geo_.fn_data_blk_nr  *= 3;
         ocssd_geo_.fm_data_blk_nr  *= 3;
+    if( ocssd_geo_.ext_obj_nr < ocssd_geo_.ext_3LVL_obj_nr )
+        ocssd_geo_.ext_data_blk_nr *= 3;
 
     ocssd_geo_.nat_entry_nbytes = 16;   // 16 = 8(ID) + 4(blk) + 2(page) + 1(obj) + 1(state)
     ocssd_geo_.nat_fn_entry_nr  = ocssd_geo_.fn_3LVL_obj_nr;
@@ -191,7 +195,7 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
         this->fn_blk_nr[ idx ] += 1;
         if( ( blk_idx[ ch ] - 1 ) % ocssd_geo_.nluns == 0 ){
             ch = ( ch + 1 ) % nchs;
-            if( ( i + 1 ) < ocssd_geo_.fn_blk_nr )
+            if( ( i + 1 ) < ocssd_geo_.fn_blk_nr && sb_meta.fn_ch_nr < nchs )
                 sb_meta.fn_ch_nr += 1;
             idx = ( idx + 1 ) % nchs;
             if( this->fn_st_blk_idx[ idx ] == 0 ) {
@@ -211,7 +215,7 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
         this->fm_blk_nr[ idx ] += 1;
         if( ( blk_idx[ ch ] - 1 ) % ocssd_geo_.nluns == 0 ){
             ch = ( ch + 1 ) % nchs;
-            if( ( i + 1 ) < ocssd_geo_.fm_blk_nr )
+            if( ( i + 1 ) < ocssd_geo_.fm_blk_nr && sb_meta.fm_ch_nr < nchs )
                 sb_meta.fm_ch_nr += 1;
             idx = ( idx + 1) % nchs;
             if( this->fm_st_blk_idx[ idx ] == 0 ) {
@@ -231,7 +235,7 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
         this->ext_blk_nr[ idx ] += 1;
         if( ( blk_idx[ ch ] - 1 ) % ocssd_geo_.nluns == 0 ){
             ch = ( ch + 1 ) % nchs;
-            if( ( i + 1 ) < ocssd_geo_.ext_blk_nr )
+            if( ( i + 1 ) < ocssd_geo_.ext_blk_nr && sb_meta.ext_ch_nr < nchs )
                 sb_meta.ext_ch_nr += 1;
             idx = ( idx + 1 ) % nchs;
             if( this->ext_st_blk_idx[ idx ] == 0 ) {
@@ -271,7 +275,7 @@ OcssdSuperBlock::OcssdSuperBlock(){
     test_geo->sector_nbytes = 4096;
     test_geo->page_nbytes = 4096;
 
-    geo = test_geo;
+//    geo = test_geo;
 
     gen_ocssd_geo( geo );
 
