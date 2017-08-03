@@ -258,7 +258,12 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
     OCSSD_DBG_INFO( this, " gen over");
 }
 
-OcssdSuperBlock::OcssdSuperBlock(){
+OcssdSuperBlock::OcssdSuperBlock()
+    :sb_addr(nullptr),sb_vblk(nullptr),sb_meta_buf(nullptr),sb_meta_buf_size((size_t)0),
+     fn_st_blk_idx(nullptr),fm_st_blk_idx(nullptr),ext_st_blk_idx(nullptr),
+     fn_blk_nr(nullptr),fm_blk_nr(nullptr),ext_blk_nr(nullptr),
+     fn_nat_vblk(nullptr),fm_nat_vblk(nullptr),ext_nat_vblk(nullptr)
+{
     sb_need_flush = 0;
     nat_need_flush = 0;
 
@@ -275,7 +280,7 @@ OcssdSuperBlock::OcssdSuperBlock(){
     test_geo->sector_nbytes = 4096;
     test_geo->page_nbytes = 4096;
 
-//    geo = test_geo;
+    //geo = test_geo;
 
     gen_ocssd_geo( geo );
 
@@ -357,19 +362,24 @@ OcssdSuperBlock::OcssdSuperBlock(){
         OCSSD_DBG_INFO( this, "ext_blk_nr    [ " << i << " ] = " << this->ext_blk_nr[i]);
     }
 
-    addr_init( geo );   // init blk_handler
+    addr_init( dev, geo );   // init blk_handler
 
     int need_format = OCSSD_REFORMAT_SSD;
     // first block of SSD store super_block_meta
-    blk_addr_handle* bah_0_ = ocssd_bah->get_blk_addr_handle( 0 );
-    bah_0_->MakeBlkAddr(0,0,0,0,sb_addr);
-    struct nvm_addr sb_nvm_addr;
-    bah_0_->convert_2_nvm_addr( sb_addr, &sb_nvm_addr );
-    bah_0_->PrBlkAddr( sb_addr, true, " first block of SSD to store sb_meta.");
+    size_t zero = 0;
+    blk_addr_handle* bah_0_ = ocssd_bah->get_blk_addr_handle( zero );
+    if( this->sb_addr == nullptr ){
+        this->sb_addr = new struct blk_addr;
+        bah_0_->MakeBlkAddr( zero, zero, zero, zero, sb_addr);
+    }
 
     // 1. read super super_block_meta
     OCSSD_DBG_INFO( this, "READ super block meta from first block");
     if( !need_format ){
+        struct nvm_addr sb_nvm_addr;
+        sb_nvm_addr.ppa = 0;
+        bah_0_->convert_2_nvm_addr( sb_addr, &sb_nvm_addr );
+        bah_0_->PrBlkAddr( sb_addr, true, " first block of SSD to store sb_meta.");
         OCSSD_DBG_INFO( this, " - Go on to read super block");
         sb_vblk = nvm_vblk_alloc( dev, &sb_nvm_addr, 1);
         sb_meta_buf_size = ocssd_geo_.block_nbytes;
@@ -523,10 +533,73 @@ OcssdSuperBlock::OcssdSuperBlock(){
 
 void OcssdSuperBlock::format_ssd() {
     OCSSD_DBG_INFO( this, "To Format SSD");
+
     // erease all block
+    OCSSD_DBG_INFO( this, " - Erease All Block");
+    ocssd_bah->erase_all_block();
+
     // write super block
+    OCSSD_DBG_INFO( this, " - Write super block");
+    size_t zero = 0;
+    blk_addr_handle* bah_0_ = ocssd_bah->get_blk_addr_handle( zero );
+    if( this->sb_addr == nullptr ){
+        this->sb_addr = new struct blk_addr;
+        bah_0_->MakeBlkAddr( zero, zero, zero, zero, sb_addr);
+    }
+    struct nvm_addr sb_nvm_addr;
+    sb_nvm_addr.ppa = 0;
+    bah_0_->convert_2_nvm_addr( sb_addr, &sb_nvm_addr );
+    if( this->sb_vblk == nullptr ){
+        this->sb_vblk = nvm_vblk_alloc( dev, &sb_nvm_addr, 1);
+        sb_meta_buf_size = ocssd_geo_.block_nbytes;
+        sb_meta_buf = (char *) nvm_buf_alloc( geo, sb_meta_buf_size );
+    }
+    size_t offset = 0;
+
+    size_t size_ = sizeof( struct ocssd_super_block_meta );
+    memcpy( sb_meta_buf + offset, &sb_meta, size_ );
+    offset += size_;
+      // xx_st_blk_idx - uin32_t
+    size_ = sizeof(uint32_t) * sb_meta.fn_ch_nr;
+    memcpy( sb_meta_buf + offset, fn_st_blk_idx, size_ );
+    offset += size_;
+    size_ = sizeof(uint32_t) * sb_meta.fm_ch_nr;
+    memcpy( sb_meta_buf + offset, fm_st_blk_idx, size_ );
+    offset += size_;
+    size_ = sizeof(uint32_t) * sb_meta.ext_ch_nr;
+    memcpy( sb_meta_buf + offset, ext_st_blk_idx, size_ );
+    offset += size_;
+      // xx_blk_nr size_t
+    size_ = sizeof( size_t ) * sb_meta.fn_ch_nr;
+    memcpy( sb_meta_buf + offset, fn_blk_nr, size_ );
+    offset += size_;
+    size_ = sizeof( size_t ) * sb_meta.fm_ch_nr;
+    memcpy( sb_meta_buf + offset, fm_blk_nr, size_ );
+    offset += size_;
+    size_ = sizeof( size_t ) * sb_meta.ext_ch_nr;
+    memcpy( sb_meta_buf + offset, ext_blk_nr, size_ );
+    offset += size_;
+      // pad
+    memset( sb_meta_buf + offset, 1, sb_meta_buf_size - offset);
+      // vblk write
+    nvm_vblk_write( sb_vblk, sb_meta_buf, sb_meta_buf_size );
+    uint64_t *magic = ( uint64_t* )sb_meta_buf;
+    uint64_t a = SUPER_BLK_MAGIC_NUM;
+
     // write nat
+    OCSSD_DBG_INFO( this, " - write empty NAT table");
+    nat_fn  = new struct nat_table;
+    nat_fm  = new struct nat_table;
+    nat_ext = new struct nat_table;
+    nat_fn->max_length  = sb_meta.fn_nat_max_size;
+    nat_fm->max_length  = sb_meta.fm_nat_max_size;
+    nat_ext->max_length = sb_meta.ext_nat_max_size;
+    nat_fn->entry  = new struct nat_entry[ nat_fn->max_length  ];
+    nat_fm->entry  = new struct nat_entry[ nat_fm->max_length  ];
+    nat_ext->entry = new struct nat_entry[ nat_ext->max_length ];
+
     // write meta data area
+    OCSSD_DBG_INFO( this, " - write FN & FM & EXT" );
 }
 
 OcssdSuperBlock::~OcssdSuperBlock()

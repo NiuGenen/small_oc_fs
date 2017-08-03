@@ -29,17 +29,17 @@ int main()
 	g.nplanes = 16;
 	g.npages = 256;
 
-    addr_init( &g );
+    addr_init( nullptr,  &g );
 
     blk_addr_handle* bah_ch_0 = ocssd_bah->get_blk_addr_handle( 0 );
 
     blk_low = bah_ch_0->get_lowest();
     blk_hig = bah_ch_0->get_highest();
     size_t blk_nr_ch_0 = bah_ch_0->get_blk_nr();
-    printf("ch_0_blk_nr = %u\n", blk_nr_ch_0 );
+    printf("ch_0_blk_nr = %lu\n", blk_nr_ch_0 );
     printf("ch_0_blk_nr = %u\n", 8 * 16 * 16 );
-    printf("blk_low = %llu\n", blk_low.__buf );
-    printf("blk_hig = %llu\n", blk_hig.__buf );
+    printf("blk_low = %lu\n", blk_low.__buf );
+    printf("blk_hig = %lu\n", blk_hig.__buf );
 
     printf("blk_ch_0_low = ");
     binary_print( &blk_low );

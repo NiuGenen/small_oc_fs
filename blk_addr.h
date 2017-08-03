@@ -56,7 +56,7 @@ struct blk_addr{
 
 class blk_addr_handle{ // a handle should attach to a tree.
 public:
-	blk_addr_handle(struct nvm_geo const *g, struct addr_meta const *tm);
+	blk_addr_handle(struct nvm_dev* d, struct nvm_geo const *g, struct addr_meta const *tm);
 	~blk_addr_handle();
 
 	enum{
@@ -115,6 +115,9 @@ public:
 	int BlkAddrValid(size_t ch, size_t lun, size_t pl, size_t blk);
 
     void PrBlkAddr(struct blk_addr *addr, bool pr_title, const char *prefix);
+	void erase_all_block();
+
+	std::string txt();
 private:
 
 	struct AddrFormat {
@@ -135,6 +138,7 @@ private:
 public:
 	struct nvm_geo const * geo_;
 private:
+    struct nvm_dev * dev_;
 	struct addr_meta const *tm_; 
 	int status_;						//status of last operation. 
 	AddrFormat format_;
@@ -149,13 +153,15 @@ private:
 
 class BlkAddrHandle{
 public:
-	BlkAddrHandle(const struct nvm_geo* geo);
+	BlkAddrHandle(struct nvm_dev* dev, const struct nvm_geo* geo);
 	~BlkAddrHandle();
+	void erase_all_block();
 
 	blk_addr_handle* get_blk_addr_handle( size_t nch );
 
 	std::string txt();
 private:
+	struct nvm_dev* dev_;
     const struct nvm_geo* geo_;
     BlkAddrHandle* bah;
 
@@ -164,6 +170,6 @@ private:
 	size_t nchs;
 };
 
-void addr_init(const struct nvm_geo *g);
+void addr_init(struct nvm_dev* dev, const struct nvm_geo *g);
 
 #endif

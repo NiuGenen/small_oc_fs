@@ -3,8 +3,8 @@
 #include "dbg_info.h"
 #include <iostream>
 
-blk_addr_handle::blk_addr_handle(struct nvm_geo const * g, struct addr_meta const * tm)
-	: geo_(g), tm_(tm), status_(0), format_()
+blk_addr_handle::blk_addr_handle(struct nvm_dev* d, struct nvm_geo const * g, struct addr_meta const * tm)
+	: dev_(d), geo_(g), tm_(tm), status_(0), format_()
 {
 	init();
 }
@@ -77,7 +77,7 @@ void blk_addr_handle::init()
     // mask_[3] = 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000   0|0 0 0   0|0 0 0   0|0 0 0   0|1 1 1
 
 	MakeBlkAddr(tm_->ch, tm_->stlun, 0, 0, &lowest);
-	MakeBlkAddr(tm_->ch, tm_->stlun + tm_->nluns - 1, geo_->nplanes - 1, geo_->nblocks - 1, &highest); 
+	MakeBlkAddr(tm_->ch, tm_->stlun + tm_->nluns - 1, geo_->nplanes - 1, geo_->nblocks - 1, &highest);
 }
 
 void blk_addr_handle::convert_2_nvm_addr(struct blk_addr *blk_a, struct nvm_addr *nvm_a)
@@ -87,29 +87,29 @@ void blk_addr_handle::convert_2_nvm_addr(struct blk_addr *blk_a, struct nvm_addr
 		tmp[idx] = (blk_a->__buf & mask_[idx]) >> lmov_[idx];
 	}
 	nvm_a->g.ch = tmp[format_.ch];
-	nvm_a->g.lun = tmp[format_.lun]; 
+	nvm_a->g.lun = tmp[format_.lun];
 	nvm_a->g.pl = tmp[format_.pl];
-	nvm_a->g.blk = tmp[format_.blk]; 
+	nvm_a->g.blk = tmp[format_.blk];
 }
 
-int blk_addr_handle::MakeBlkAddr(size_t ch, 
-	size_t lun, 
-	size_t pl, 
-	size_t blk, 
+int blk_addr_handle::MakeBlkAddr(size_t ch,
+	size_t lun,
+	size_t pl,
+	size_t blk,
 	struct blk_addr* addr)
 {
     addr->__buf = 0;
 
 	uint64_t tmp[4];
-	int ret = BlkAddrValid(ch, lun, pl, blk); ///Warning - @ch must be same as ext_meta.ch 
+	int ret = BlkAddrValid(ch, lun, pl, blk); ///Warning - @ch must be same as ext_meta.ch
 	if(ret){
 		return ret;
 	}
-	
-	tmp[format_.ch] = ch; 
-	tmp[format_.lun] = lun; 
-	tmp[format_.pl] = pl; 
-	tmp[format_.blk] = blk; 
+
+	tmp[format_.ch] = ch;
+	tmp[format_.lun] = lun;
+	tmp[format_.pl] = pl;
+	tmp[format_.blk] = blk;
 
 	addr->__buf = 0;
 
@@ -180,8 +180,8 @@ size_t blk_addr_handle::SetFieldBlkAddr(size_t val, int field, struct blk_addr *
 	return org_value;                                               // return original value
 }
 /*
- * @blk_addr + @x 
- * warning - @blk_addr will be change 
+ * @blk_addr + @x
+ * warning - @blk_addr will be change
  */
 void blk_addr_handle::BlkAddrAdd(size_t x, struct blk_addr *addr)
 {
@@ -189,8 +189,8 @@ void blk_addr_handle::BlkAddrAdd(size_t x, struct blk_addr *addr)
 }
 
 /*
- * @blk_addr - @x 
- * warning - @blk_addr will be change  
+ * @blk_addr - @x
+ * warning - @blk_addr will be change
  */
 void blk_addr_handle::BlkAddrSub(size_t x, struct blk_addr *addr)
 {
@@ -198,9 +198,9 @@ void blk_addr_handle::BlkAddrSub(size_t x, struct blk_addr *addr)
 }
 
 /*
- * return -1 if @lhs < @rhs; 
+ * return -1 if @lhs < @rhs;
  * 		  0  if @lhs == @rhs;
- * 		  1  if @lhs > @rhs; 
+ * 		  1  if @lhs > @rhs;
  */
 int blk_addr_handle::BlkAddrCmp(const struct blk_addr *lhs, const struct blk_addr *rhs)
 {
@@ -215,11 +215,11 @@ int blk_addr_handle::BlkAddrCmp(const struct blk_addr *lhs, const struct blk_add
 
 bool blk_addr_handle::CalcOK()
 {
-	return status_ == 0; 
+	return status_ == 0;
 }
 
 /*
- * return @addr - @lowest, if mode == 0; 
+ * return @addr - @lowest, if mode == 0;
  * return @highest - @addr, if mode == 1;
  */
 size_t blk_addr_handle::BlkAddrDiff(const struct blk_addr *addr, int mode)
@@ -243,7 +243,7 @@ size_t blk_addr_handle::BlkAddrDiff(const struct blk_addr *addr, int mode)
 
 /*
  * valid value range: [0, field_limit_val).
- * @ret - 0 - OK. 
+ * @ret - 0 - OK.
  *      - otherwise return value means corresponding field not valid.
  */
 int blk_addr_handle::BlkAddrValid(size_t ch, size_t lun, size_t pl, size_t blk)
@@ -269,7 +269,7 @@ void blk_addr_handle::do_sub_or_add(size_t x, struct blk_addr *addr, int mode)
 	ssize_t v[4];
 	int i;
 	if (x > BlkAddrDiff(addr, mode)) { // out of range [ lowest, highest ]
-		status_ = -CalcOF;	
+		status_ = -CalcOF;
 		return ;
 	}
 
@@ -281,13 +281,13 @@ void blk_addr_handle::do_sub_or_add(size_t x, struct blk_addr *addr, int mode)
 		x = x / usize_[i];
 		v[i] = static_cast<ssize_t>((addr->__buf & mask_[i]) >> lmov_[i]);
 	}
-    
+
 	if (mode == 0) {
 		do_sub(aos, v, addr);
 	} else {
 		do_add(aos, v, addr);
 	}
-    
+
 	addr->__buf = 0;
 	for(i = 0; i < 4; i++){
 		addr->__buf |= static_cast<uint64_t>(v[i]) << lmov_[i];
@@ -343,13 +343,37 @@ void blk_addr_handle::PrBlkAddr(struct blk_addr *addr, bool pr_title, const char
 	printf("\n");
 }
 
+void blk_addr_handle::erase_all_block()
+{
+	OCSSD_DBG_INFO( this, "   - erase ch " << tm_->ch );
+	struct nvm_addr* nvm_address = new struct nvm_addr;
+    nvm_address->ppa = 0;
+	struct nvm_vblk* nvm_addr_vblk = nullptr;
+	struct blk_addr blk_address = this->lowest;
+	size_t blk_nr = this->get_blk_nr();
+//	struct nvm_ret ret;
+	for(size_t c = 0; c < blk_nr; ++c){
+		this->convert_2_nvm_addr( &blk_address, nvm_address );
+		this->BlkAddrAdd( (size_t)1, &blk_address );
+//		nvm_addr_erase( dev_, nvm_address, 1 , NVM_FLAG_PMODE_SNGL ,&ret );
+		nvm_addr_vblk = nvm_vblk_alloc( dev_, nvm_address, 1 );
+		nvm_vblk_erase( nvm_addr_vblk );
+//		nvm_ret_pr( &ret );
+	}
+}
+
+std::string blk_addr_handle::txt() {
+	return "blk_addr_handle";
+}
+
 // global vars
 BlkAddrHandle* ocssd_bah;
 
-BlkAddrHandle::BlkAddrHandle(const struct nvm_geo* geo)
+BlkAddrHandle::BlkAddrHandle(struct nvm_dev* dev, const struct nvm_geo* geo)
 {
 	OCSSD_DBG_INFO( this, "BlkAddrHandle(const struct nvm_geo* geo)");
 
+	this->dev_ = dev;
 	this->geo_ = geo;
 
 	size_t i;
@@ -368,7 +392,7 @@ BlkAddrHandle::BlkAddrHandle(const struct nvm_geo* geo)
 		am[i].nluns = geo->nluns;
 		am[i].stlun = 0;
 
-		blk_addr_handlers_of_ch[i] = new blk_addr_handle(geo, am + i);
+		blk_addr_handlers_of_ch[i] = new blk_addr_handle(dev, geo, am + i);
 	}
 }
 
@@ -392,14 +416,20 @@ blk_addr_handle* BlkAddrHandle::get_blk_addr_handle(size_t nch) {
 	return blk_addr_handlers_of_ch[nch];
 }
 
+void BlkAddrHandle::erase_all_block() {
+	for(size_t ch = 0; ch < this->nchs; ++ch ){
+		blk_addr_handlers_of_ch[ ch ]->erase_all_block();
+	}
+}
+
 std::string BlkAddrHandle::txt()
 {
 	return "BlkAddrHandle";
 }
 
-void addr_init(const struct nvm_geo *geo)
+void addr_init(struct nvm_dev* dev, const struct nvm_geo *geo)
 {
     if( ocssd_bah == nullptr ) {
-		ocssd_bah = new BlkAddrHandle(geo);
+		ocssd_bah = new BlkAddrHandle(dev, geo);
 	}
 }
