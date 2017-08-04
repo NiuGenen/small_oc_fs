@@ -67,16 +67,18 @@ private:
 	const char* mba_name;
 
 	struct blk_addr* meta_blk_addr;
-	size_t meta_blk_addr_size;
+	size_t meta_blk_nr;
+	size_t bitmap_blk_nr;
+	size_t data_blk_nr;
 
-    uint32_t bitmap_blk_nr;
+	struct nvm_vblk* bitmap_vblk;
 	uint8_t* map_buf;
 	size_t map_buf_size;
 	uint8_t* blk_map;
 	uint8_t** blk_page_map;
 	uint8_t*** blk_page_obj_map;	// bit map
 
-	size_t blk_act;
+	uint32_t blk_act;
 	uint16_t page_act;
 	uint8_t obj_act;
 	void act_addr_set_state( uint8_t state );	// update bitmap with current act

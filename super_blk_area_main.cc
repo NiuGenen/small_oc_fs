@@ -3,6 +3,5 @@
 int main()
 {
     OcssdSuperBlock oc_sb;
-
     return 0;
 }

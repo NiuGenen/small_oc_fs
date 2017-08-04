@@ -1,4 +1,4 @@
-all:test_addr test_sb
+all:test_addr test_sb test_mba
 
 _blk_addr =  blk_addr.h blk_addr.cc
 _sb_area  =  super_blk_area.h super_blk_area.cc
@@ -17,3 +17,7 @@ test_sb: super_blk_area_main.cc ${_sb_area} ${_blk_addr} ${_mba} ${_ext} ${_fn} 
 		 super_blk_area_main.cc ${_sb_area} ${_blk_addr} ${_mba} ${_ext} ${_fn} ${_fm} \
 		 -std=c++0x -llightnvm
 
+test_mba: meta_blk_area_main.cc ${_sb_area} ${_blk_addr} ${_mba} ${_ext} ${_fn} ${_fm}
+	g++ -o test_mba -g \
+		 meta_blk_area_main.cc ${_sb_area} ${_blk_addr} ${_mba} ${_ext} ${_fn} ${_fm} \
+		 -std=c++0x -llightnvm
