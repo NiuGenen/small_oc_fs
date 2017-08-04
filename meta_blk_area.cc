@@ -15,8 +15,10 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
 	const char* mba_name,
 	uint32_t st_ch, uint32_t ch_nr,
 	struct blk_addr* st_addr, size_t* addr_nr,
-	struct nat_table* nat )
+	struct nat_table* nat, uint32_t bitmap_blk_nr)
 {
+    OCSSD_DBG_INFO( this, "build MetaBlkArea : " << mba_name );
+
     size_t nat_max_length   =   nat->max_length;
 
     this->dev               =   dev;
@@ -30,11 +32,12 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
     // build meta_blk_addr[ meta_blk_addr_size ]
     // meta_blk_addr[0] contains bitmap
     // meta_blk_addr[1, size-1] contains obj
-    meta_blk_addr_size = 0;
+    this->meta_blk_addr_size = 0;
     for(uint32_t ch=st_ch, count = 0; count < ch_nr; ++count){
-        meta_blk_addr_size += addr_nr[ ch - st_ch ];
+        this->meta_blk_addr_size += addr_nr[ ch - st_ch ];
     }
-    meta_blk_addr = new struct blk_addr[ meta_blk_addr_size ];  // all blk_addr of this meta area
+    this->meta_blk_addr = new struct blk_addr[ meta_blk_addr_size ];  // all blk_addr of this meta area
+
     size_t idx = 0;
     for(uint32_t ch=st_ch, count=0; count<ch_nr; ++count){
         blk_addr_handle* bah_ch_ = ocssd_bah->get_blk_addr_handle( ch );
@@ -46,13 +49,16 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
     }
 
     // read bitmap from SSD & build blk_map[],blk_page_map[],blk_page_obj_map[]
+    this->bitmap_blk_nr = bitmap_blk_nr;
+
     struct nvm_addr first_blk_nvm_addr;
+    first_blk_nvm_addr.ppa = 0;
     blk_addr_handle* bah_st_ch_ = ocssd_bah->get_blk_addr_handle( st_ch );
     bah_st_ch_->convert_2_nvm_addr( &(meta_blk_addr[0]), &first_blk_nvm_addr );
-    struct nvm_vblk * first_blk_vblk = nvm_vblk_alloc( dev, &first_blk_nvm_addr, 1 ); 
+    struct nvm_vblk* first_blk_vblk = nvm_vblk_alloc( dev, &first_blk_nvm_addr, 1 );
     
     map_buf_size = geo->npages * geo->page_nbytes; // one block size
-    map_buf =(uint8_t*)malloc( map_buf_size );
+    map_buf =(uint8_t* )malloc( map_buf_size );
     size_t map_buf_idx = 0;
     nvm_vblk_read( first_blk_vblk, map_buf, map_buf_size );    // read bitmap
     nvm_vblk_free( first_blk_vblk );

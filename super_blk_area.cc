@@ -150,6 +150,10 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
     OCSSD_DBG_INFO( this, " gen ocssd super block");
     sb_meta.magic_num = SUPER_BLK_MAGIC_NUM;
 
+    sb_meta.fn_bitmap_blk_nr  = (uint32_t)ocssd_geo_.fn_bitmap_blk_nr ;
+    sb_meta.fm_bitmap_blk_nr  = (uint32_t)ocssd_geo_.fm_bitmap_blk_nr ;
+    sb_meta.ext_bitmap_blk_nr = (uint32_t)ocssd_geo_.ext_bitmap_blk_nr;
+
     sb_meta.fn_obj_size  = ocssd_geo_.fn_obj_nbytes ;
     sb_meta.fm_obj_size  = ocssd_geo_.fm_obj_nbytes ;
     sb_meta.ext_obj_size = ocssd_geo_.ext_obj_nbytes;
@@ -282,6 +286,7 @@ OcssdSuperBlock::OcssdSuperBlock()
 
     //geo = test_geo;
 
+    OCSSD_DBG_INFO( this, "0. calculate SSD layout");
     gen_ocssd_geo( geo );
 
     OCSSD_DBG_INFO( this, "geo -> nchannels = " << ocssd_geo_.nchannels );
@@ -374,7 +379,7 @@ OcssdSuperBlock::OcssdSuperBlock()
     }
 
     // 1. read super super_block_meta
-    OCSSD_DBG_INFO( this, "READ super block meta from first block");
+    OCSSD_DBG_INFO( this, "1. READ super block meta from first block");
     if( !need_format ){
         struct nvm_addr sb_nvm_addr;
         sb_nvm_addr.ppa = 0;
@@ -389,23 +394,23 @@ OcssdSuperBlock::OcssdSuperBlock()
     else{
         OCSSD_DBG_INFO( this, " - Need to Format SSD");
         format_ssd();
+        need_format = 0;
     }
-    // struct ocssd_super_block_meta sb_meta
 
     need_format |= (!sb_meta.magic_num == SUPER_BLK_MAGIC_NUM )?1:0;
 
     if( need_format ){
-        OCSSD_DBG_INFO( this, "Not Fotmated DEV" << OC_DEV_PATH );
-//      exit(-1);
-        sb_need_flush = 1;
-        nat_need_flush = 1;
+        OCSSD_DBG_INFO( this, "Not Fotmated DEV : " << OC_DEV_PATH );
+        exit(-1);
+//        sb_need_flush = 1;
+//        nat_need_flush = 1;
     }
 
     // 2. read nat table
+    OCSSD_DBG_INFO( this, "2. read NAT table");
     // struct nat_table* nat_fn;
     // struct nat_table* nat_fm;
     // struct nat_table* nat_ext;
-    OCSSD_DBG_INFO(this, "READ nat table");
     OCSSD_DBG_INFO(this, "fn_nat_max_size  = " << sb_meta.fn_nat_max_size  );
     OCSSD_DBG_INFO(this, "fm_nat_max_size  = " << sb_meta.fm_nat_max_size  );
     OCSSD_DBG_INFO(this, "ext_nat_max_size = " << sb_meta.ext_nat_max_size );
@@ -418,68 +423,75 @@ OcssdSuperBlock::OcssdSuperBlock()
     nat_fn->entry  = new struct nat_entry[ nat_fn->max_length  ];
     nat_fm->entry  = new struct nat_entry[ nat_fm->max_length  ];
     nat_ext->entry = new struct nat_entry[ nat_ext->max_length ];
+    for(size_t i = 0; i < nat_fn->max_length; ++i ){
+        nat_fn->entry[ i ].state = NAT_ENTRY_FREE;
+    }
+    for(size_t i = 0; i < nat_fm->max_length; ++i ){
+        nat_fm->entry[ i ].state = NAT_ENTRY_FREE;
+    }
+    for(size_t i = 0; i < nat_ext->max_length; ++i ){
+        nat_ext->entry[ i ].state = NAT_ENTRY_FREE;
+    }
 
-    // read nat table from SSD
+    // read nat table from  formated OCSSD
     if( !need_format ) {
         struct blk_addr fn_nat_blk = *sb_addr;
         struct nvm_addr *fn_nat_nvm_addr = new struct nvm_addr[sb_meta.fn_nat_blk_nr];
         for (int i = 0; i < sb_meta.fn_nat_blk_nr; ++i) {
             bah_0_->BlkAddrAdd(1, &fn_nat_blk);
+            fn_nat_nvm_addr[i].ppa = 0;
             bah_0_->convert_2_nvm_addr(&fn_nat_blk, &(fn_nat_nvm_addr[i]));
         }
-        fn_nat_vblk = nvm_vblk_alloc(dev, fn_nat_nvm_addr, sb_meta.fn_nat_blk_nr);    // get fn vblk
-        // free( fn_nat_nvm_addr )
-        fn_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.fn_nat_blk_nr;
-        fn_nat_buf = (char *) nvm_buf_alloc(geo, fn_nat_buf_size); // read vblk into fn_nat_buf
+        if( this->fn_nat_vblk == nullptr ) {
+            this->fn_nat_vblk = nvm_vblk_alloc(dev, fn_nat_nvm_addr, sb_meta.fn_nat_blk_nr);    // get fn vblk
+            free(fn_nat_nvm_addr);
+            this->fn_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.fn_nat_blk_nr;
+            this->fn_nat_buf = (char *) nvm_buf_alloc(geo, fn_nat_buf_size); // read vblk into fn_nat_buf
+        }
         nvm_vblk_read(fn_nat_vblk, fn_nat_buf, fn_nat_buf_size);
+        size_t offset = 0;
         for (int i = 0; i < sb_meta.fn_nat_max_size; ++i) {
-            memcpy(&(nat_fn->entry[i]),  // nat_fn->entry[i]
-                   fn_nat_buf + sizeof(struct nat_entry) * i,
-                   sizeof(struct nat_entry));
+            memcpy(&(nat_fn->entry[i]), fn_nat_buf + offset, sizeof(struct nat_entry));
+            offset += sizeof( struct nat_entry );
         }
 
         struct blk_addr fm_nat_blk = fn_nat_blk;
         struct nvm_addr *fm_nat_nvm_addr = new struct nvm_addr[sb_meta.fm_nat_blk_nr];
         for (int i = 0; i < sb_meta.fm_nat_blk_nr; ++i) {
             bah_0_->BlkAddrAdd(1, &fm_nat_blk);
+            fm_nat_nvm_addr[i].ppa = 0;
             bah_0_->convert_2_nvm_addr(&fm_nat_blk, &(fm_nat_nvm_addr[i]));
         }
-        fm_nat_vblk = nvm_vblk_alloc(dev, fm_nat_nvm_addr, sb_meta.fm_nat_blk_nr);
-        fm_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.fm_nat_blk_nr;
-        fm_nat_buf = (char *) nvm_buf_alloc(geo, fm_nat_buf_size);
+        this->fm_nat_vblk = nvm_vblk_alloc(dev, fm_nat_nvm_addr, sb_meta.fm_nat_blk_nr);
+        this->fm_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.fm_nat_blk_nr;
+        this->fm_nat_buf = (char *) nvm_buf_alloc(geo, fm_nat_buf_size);
         nvm_vblk_read(fm_nat_vblk, fm_nat_buf, fm_nat_buf_size);
+        offset = 0;
         for (int i = 0; i < sb_meta.fm_nat_max_size; ++i) {
-            // nat_fm->entry[i]
+            memcpy(&(nat_fm->entry[i]), fm_nat_buf + offset, sizeof(struct nat_entry) );
+            offset += sizeof( struct nat_entry );
         }
 
         struct blk_addr ext_nat_blk = fm_nat_blk;
         struct nvm_addr *ext_nat_nvm_addr = new struct nvm_addr[sb_meta.ext_nat_blk_nr];
         for (int i = 0; i < sb_meta.ext_nat_blk_nr; ++i) {
             bah_0_->BlkAddrAdd(1, &ext_nat_blk);
+            ext_nat_nvm_addr[i].ppa = 0;
             bah_0_->convert_2_nvm_addr(&ext_nat_blk, &(ext_nat_nvm_addr[i]));
         }
-        ext_nat_vblk = nvm_vblk_alloc(dev, ext_nat_nvm_addr, sb_meta.ext_nat_blk_nr);
-        ext_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.ext_nat_blk_nr;
-        ext_nat_buf = (char *) nvm_buf_alloc(geo, ext_nat_buf_size);
+        this->ext_nat_vblk = nvm_vblk_alloc(dev, ext_nat_nvm_addr, sb_meta.ext_nat_blk_nr);
+        this->ext_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.ext_nat_blk_nr;
+        this->ext_nat_buf = (char *) nvm_buf_alloc(geo, ext_nat_buf_size);
         nvm_vblk_read(ext_nat_vblk, ext_nat_buf, ext_nat_buf_size);
+        offset = 0;
         for (int i = 0; i < sb_meta.ext_nat_max_size; ++i) {
-            // nat_ext->entry[i]
+            memcpy(&(nat_ext->entry[i]), ext_nat_buf + offset, sizeof(struct nat_entry) );
+            offset += sizeof( struct nat_entry );
         }// */
-    }
-    else{
-        for(size_t i = 0; i < sb_meta.fn_nat_max_size ; ++i){
-            nat_fn->entry[i].state= NAT_ENTRY_FREE;
-        }
-        for(size_t i = 0; i < sb_meta.fm_nat_max_size; ++i){
-            nat_fm->entry[i].state = NAT_ENTRY_FREE;
-        }
-        for(size_t i = 0; i < sb_meta.ext_nat_max_size; ++i){
-            nat_ext->entry[i].state = NAT_ENTRY_FREE;
-        }
     }
 
     // 3. init meta blk area
-    //
+    OCSSD_DBG_INFO( this, "3. init meta blk area");
     // void xxx_blk_area_init(
 	//     int st_ch, int ed_ch,
     //     struct blk_addr* st_addr, size_t* blk_nr,
@@ -487,20 +499,20 @@ OcssdSuperBlock::OcssdSuperBlock()
     
     struct blk_addr* fn_st_blk  = new struct blk_addr[ sb_meta.fn_ch_nr ];
     for(size_t ch=sb_meta.fn_st_ch, count = 0; count < sb_meta.fn_ch_nr; ++ch, ++count){
-        ocssd_bah->get_blk_addr_handle(ch)->MakeBlkAddr( ch,0,0,0, &(fn_st_blk[ ch - sb_meta.fn_st_ch ]) );
-        ocssd_bah->get_blk_addr_handle(ch)->BlkAddrAdd( fn_st_blk_idx[ ch - sb_meta.fn_st_ch ], &(fn_st_blk[ ch - sb_meta.fn_st_ch ]));
+        ocssd_bah->get_blk_addr_handle(ch)->MakeBlkAddr( ch,0,0,0, &(fn_st_blk[ count ]) );
+        ocssd_bah->get_blk_addr_handle(ch)->BlkAddrAdd( fn_st_blk_idx[ count ], &(fn_st_blk[ count ]));
     }
 
     struct blk_addr* fm_st_blk  = new struct blk_addr[ sb_meta.fm_ch_nr ];
     for(size_t ch=sb_meta.fm_st_ch, count = 0; count<sb_meta.fm_ch_nr; ++ch, ++count){
-        ocssd_bah->get_blk_addr_handle(ch)->MakeBlkAddr( ch,0,0,0, &(fm_st_blk[ ch - sb_meta.fm_st_ch ]) );
-        ocssd_bah->get_blk_addr_handle(ch)->BlkAddrAdd( fm_st_blk_idx[ ch - sb_meta.fm_st_ch ], &(fm_st_blk[ ch - sb_meta.fm_st_ch ]));
+        ocssd_bah->get_blk_addr_handle(ch)->MakeBlkAddr( ch,0,0,0, &(fm_st_blk[ count ]) );
+        ocssd_bah->get_blk_addr_handle(ch)->BlkAddrAdd( fm_st_blk_idx[ count ], &(fm_st_blk[ count ]));
     }
 
     struct blk_addr* ext_st_blk = new struct blk_addr[ sb_meta.ext_ch_nr ];
     for(size_t ch=sb_meta.ext_st_ch, count = 0; count<sb_meta.ext_ch_nr; ++ch, ++count){
-        ocssd_bah->get_blk_addr_handle(ch)->MakeBlkAddr( ch,0,0,0, &(ext_st_blk[ ch - sb_meta.ext_st_ch ]) );
-        ocssd_bah->get_blk_addr_handle(ch)->BlkAddrAdd( ext_st_blk_idx[ ch - sb_meta.ext_st_ch ], &(ext_st_blk[ ch - sb_meta.ext_st_ch ]));
+        ocssd_bah->get_blk_addr_handle(ch)->MakeBlkAddr( ch,0,0,0, &(ext_st_blk[ count ]) );
+        ocssd_bah->get_blk_addr_handle(ch)->BlkAddrAdd( ext_st_blk_idx[ count ], &(ext_st_blk[ count ]));
     }
 
 	// struct nvm_dev* dev,
@@ -513,22 +525,20 @@ OcssdSuperBlock::OcssdSuperBlock()
         dev, geo,
         sb_meta.fn_st_ch, sb_meta.fn_ch_nr, // uint32_t
         fn_st_blk, fn_blk_nr,
-        nat_fn
+        nat_fn, sb_meta.fn_bitmap_blk_nr
     );
     file_meta_blk_area_init(
         dev, geo,
         sb_meta.fm_st_ch, sb_meta.fm_ch_nr,
         fm_st_blk, fm_blk_nr,
-        nat_fm
+        nat_fm, sb_meta.fm_bitmap_blk_nr
     );
     extent_blk_area_init(
         dev, geo,
         sb_meta.ext_st_ch, sb_meta.ext_ch_nr,
         ext_st_blk, ext_blk_nr,
-        nat_ext
+        nat_ext, sb_meta.ext_bitmap_blk_nr
     );// */
-
-    flush();
 }
 
 void OcssdSuperBlock::format_ssd() {
@@ -540,66 +550,120 @@ void OcssdSuperBlock::format_ssd() {
 
     // write super block
     OCSSD_DBG_INFO( this, " - Write super block");
-    size_t zero = 0;
-    blk_addr_handle* bah_0_ = ocssd_bah->get_blk_addr_handle( zero );
-    if( this->sb_addr == nullptr ){
-        this->sb_addr = new struct blk_addr;
-        bah_0_->MakeBlkAddr( zero, zero, zero, zero, sb_addr);
-    }
-    struct nvm_addr sb_nvm_addr;
-    sb_nvm_addr.ppa = 0;
-    bah_0_->convert_2_nvm_addr( sb_addr, &sb_nvm_addr );
-    if( this->sb_vblk == nullptr ){
-        this->sb_vblk = nvm_vblk_alloc( dev, &sb_nvm_addr, 1);
-        sb_meta_buf_size = ocssd_geo_.block_nbytes;
-        sb_meta_buf = (char *) nvm_buf_alloc( geo, sb_meta_buf_size );
-    }
-    size_t offset = 0;
-
-    size_t size_ = sizeof( struct ocssd_super_block_meta );
-    memcpy( sb_meta_buf + offset, &sb_meta, size_ );
-    offset += size_;
-      // xx_st_blk_idx - uin32_t
-    size_ = sizeof(uint32_t) * sb_meta.fn_ch_nr;
-    memcpy( sb_meta_buf + offset, fn_st_blk_idx, size_ );
-    offset += size_;
-    size_ = sizeof(uint32_t) * sb_meta.fm_ch_nr;
-    memcpy( sb_meta_buf + offset, fm_st_blk_idx, size_ );
-    offset += size_;
-    size_ = sizeof(uint32_t) * sb_meta.ext_ch_nr;
-    memcpy( sb_meta_buf + offset, ext_st_blk_idx, size_ );
-    offset += size_;
-      // xx_blk_nr size_t
-    size_ = sizeof( size_t ) * sb_meta.fn_ch_nr;
-    memcpy( sb_meta_buf + offset, fn_blk_nr, size_ );
-    offset += size_;
-    size_ = sizeof( size_t ) * sb_meta.fm_ch_nr;
-    memcpy( sb_meta_buf + offset, fm_blk_nr, size_ );
-    offset += size_;
-    size_ = sizeof( size_t ) * sb_meta.ext_ch_nr;
-    memcpy( sb_meta_buf + offset, ext_blk_nr, size_ );
-    offset += size_;
-      // pad
-    memset( sb_meta_buf + offset, 1, sb_meta_buf_size - offset);
-      // vblk write
-    nvm_vblk_write( sb_vblk, sb_meta_buf, sb_meta_buf_size );
-    uint64_t *magic = ( uint64_t* )sb_meta_buf;
-    uint64_t a = SUPER_BLK_MAGIC_NUM;
+    this->sb_need_flush  = 1;
+    flush_sb();
 
     // write nat
-    OCSSD_DBG_INFO( this, " - write empty NAT table");
+    OCSSD_DBG_INFO( this, " - Write empty NAT table");
     nat_fn  = new struct nat_table;
-    nat_fm  = new struct nat_table;
-    nat_ext = new struct nat_table;
+    nat_fm  = new struct nat_table; // struct nat_entry * entry     // obj_id blk_idx page obj state
+    nat_ext = new struct nat_table; // uint6_t max_length
     nat_fn->max_length  = sb_meta.fn_nat_max_size;
     nat_fm->max_length  = sb_meta.fm_nat_max_size;
     nat_ext->max_length = sb_meta.ext_nat_max_size;
     nat_fn->entry  = new struct nat_entry[ nat_fn->max_length  ];
     nat_fm->entry  = new struct nat_entry[ nat_fm->max_length  ];
     nat_ext->entry = new struct nat_entry[ nat_ext->max_length ];
+    for(size_t i = 0; i < nat_fn->max_length; ++i ){
+        nat_fn->entry[ i ].state = NAT_ENTRY_FREE;
+    }
+    for(size_t i = 0; i < nat_fm->max_length; ++i ){
+        nat_fm->entry[ i ].state = NAT_ENTRY_FREE;
+    }
+    for(size_t i = 0; i < nat_ext->max_length; ++i ){
+        nat_ext->entry[ i ].state = NAT_ENTRY_FREE;
+    }
+    nat_need_flush = 1;
+    this->flush_nat();
 
     // write meta data area
-    OCSSD_DBG_INFO( this, " - write FN & FM & EXT" );
+    OCSSD_DBG_INFO( this, " - Write Meta Data Obj");
+    struct blk_addr bitmap_addr;
+    bitmap_addr.__buf = 0;
+        // only need to write all 0 bitmap
+    OCSSD_DBG_INFO( this, " - - write FN  bitmap");
+    struct nvm_addr* fn_bitmap_nvm_addr = new struct nvm_addr[ sb_meta.fn_bitmap_blk_nr ];
+    for(uint32_t i = 0; i < sb_meta.fn_bitmap_blk_nr; ++i ){
+        fn_bitmap_nvm_addr[ i ].ppa = 0;
+    }
+    size_t count = 0;
+    size_t ch = sb_meta.fn_st_ch;
+    size_t nchs = ocssd_geo_.nchannels;
+    size_t idx = 0;
+    size_t blk_count = 0;
+    ocssd_bah->get_blk_addr_handle( ch )->MakeBlkAddr( ch, 0 , 0 , 0 , &bitmap_addr );
+    ocssd_bah->get_blk_addr_handle( ch )->BlkAddrAdd( this->fn_st_blk_idx[ idx ], &bitmap_addr );
+    while( count < sb_meta.fn_bitmap_blk_nr ){
+        ocssd_bah->get_blk_addr_handle( ch )->convert_2_nvm_addr( &bitmap_addr, &(fn_bitmap_nvm_addr[count]) );
+        ocssd_bah->get_blk_addr_handle( ch )->BlkAddrAdd( 1 , &bitmap_addr );
+        blk_count += 1;
+        count += 1;
+        if( count < sb_meta.fn_bitmap_blk_nr && blk_count >= this->fn_blk_nr[ idx ] ){
+            blk_count = 0;
+            idx += 1; ch = ( ch + 1 ) % nchs;
+            ocssd_bah->get_blk_addr_handle( ch )->MakeBlkAddr( ch, 0 , 0 , 0 , &bitmap_addr );
+            ocssd_bah->get_blk_addr_handle( ch )->BlkAddrAdd( this->fn_st_blk_idx[ idx ], &bitmap_addr );
+        }
+    }
+    struct nvm_vblk* fn_bitmap_vblk = nvm_vblk_alloc( dev, fn_bitmap_nvm_addr, sb_meta.fn_bitmap_blk_nr );
+    size_t fn_bitmap_buf_size = ocssd_geo_.block_nbytes * sb_meta.fn_bitmap_blk_nr;
+    void* fn_bitmap_buf = (void *) malloc( fn_bitmap_buf_size );
+    memset( fn_bitmap_buf, MBA_MAP_STATE_FREE, fn_bitmap_buf_size );    // set all 0
+    nvm_vblk_write( fn_bitmap_vblk, fn_bitmap_buf, fn_bitmap_buf_size );
+    free( fn_bitmap_nvm_addr );
+    free( fn_bitmap_buf );
+
+    OCSSD_DBG_INFO( this, " - - write FM  bitmap");
+    struct nvm_addr* fm_bitmap_nvm_addr = new struct nvm_addr[ sb_meta.fm_bitmap_blk_nr ];
+    for(uint32_t i = 0; i < sb_meta.fm_bitmap_blk_nr; ++i ){
+        fm_bitmap_nvm_addr[ i ].ppa = 0;
+    }
+    count = 0; ch = sb_meta.fm_st_ch; idx = 0; blk_count = 0;
+    ocssd_bah->get_blk_addr_handle( ch )->MakeBlkAddr( ch, 0 , 0 , 0 , &bitmap_addr );
+    ocssd_bah->get_blk_addr_handle( ch )->BlkAddrAdd( this->fm_st_blk_idx[ idx ], &bitmap_addr );
+    while( count < sb_meta.fm_bitmap_blk_nr ){
+        ocssd_bah->get_blk_addr_handle( ch )->convert_2_nvm_addr( &bitmap_addr, &(fm_bitmap_nvm_addr[count]) );
+        ocssd_bah->get_blk_addr_handle( ch )->BlkAddrAdd( 1 , &bitmap_addr );
+        blk_count += 1; count += 1;
+        if( count < sb_meta.fm_bitmap_blk_nr && blk_count >= this->fm_blk_nr[ idx ] ){
+            blk_count = 0; idx += 1; ch = ( ch + 1 ) % nchs;
+            ocssd_bah->get_blk_addr_handle( ch )->MakeBlkAddr( ch, 0 , 0 , 0 , &bitmap_addr );
+            ocssd_bah->get_blk_addr_handle( ch )->BlkAddrAdd( this->fm_st_blk_idx[ idx ], &bitmap_addr );
+        }
+    }
+    struct nvm_vblk* fm_bitmap_vblk = nvm_vblk_alloc( dev, fm_bitmap_nvm_addr, sb_meta.fm_bitmap_blk_nr );
+    size_t fm_bitmap_buf_size = ocssd_geo_.block_nbytes * sb_meta.fm_bitmap_blk_nr;
+    void* fm_bitmap_buf = (void *) malloc( fm_bitmap_buf_size );
+    memset( fm_bitmap_buf, MBA_MAP_STATE_FREE, fm_bitmap_buf_size );    // set all 0
+    nvm_vblk_write( fm_bitmap_vblk, fm_bitmap_buf, fm_bitmap_buf_size );
+    free( fm_bitmap_nvm_addr );
+    free( fm_bitmap_buf );
+
+    OCSSD_DBG_INFO( this, " - - write EXT bitmap");
+    struct nvm_addr* ext_bitmap_nvm_addr = new struct nvm_addr[ sb_meta.ext_bitmap_blk_nr ];
+    for(uint32_t i = 0; i < sb_meta.ext_bitmap_blk_nr; ++i ){
+        ext_bitmap_nvm_addr[ i ].ppa = 0;
+    }
+    count = 0; ch = sb_meta.ext_st_ch; idx = 0; blk_count = 0;
+    ocssd_bah->get_blk_addr_handle( ch )->MakeBlkAddr( ch, 0 , 0 , 0 , &bitmap_addr );
+    ocssd_bah->get_blk_addr_handle( ch )->BlkAddrAdd( this->ext_st_blk_idx[ idx ], &bitmap_addr );
+    while( count < sb_meta.ext_bitmap_blk_nr ){
+        ocssd_bah->get_blk_addr_handle( ch )->convert_2_nvm_addr( &bitmap_addr, &(ext_bitmap_nvm_addr[count]) );
+        ocssd_bah->get_blk_addr_handle( ch )->BlkAddrAdd( 1 , &bitmap_addr );
+        blk_count += 1; count += 1;
+        if( count < sb_meta.ext_bitmap_blk_nr && blk_count >= this->ext_blk_nr[ idx ] ){
+            blk_count = 0; idx += 1; ch = ( ch + 1 ) % nchs;
+            ocssd_bah->get_blk_addr_handle( ch )->MakeBlkAddr( ch, 0 , 0 , 0 , &bitmap_addr );
+            ocssd_bah->get_blk_addr_handle( ch )->BlkAddrAdd( this->ext_st_blk_idx[ idx ], &bitmap_addr );
+        }
+    }
+    struct nvm_vblk* ext_bitmap_vblk = nvm_vblk_alloc( dev, ext_bitmap_nvm_addr, sb_meta.ext_bitmap_blk_nr );
+    size_t ext_bitmap_buf_size = ocssd_geo_.block_nbytes * sb_meta.ext_bitmap_blk_nr;
+    void* ext_bitmap_buf = (void *) malloc( ext_bitmap_buf_size );
+    memset( ext_bitmap_buf, MBA_MAP_STATE_FREE, ext_bitmap_buf_size );    // set all 0
+    nvm_vblk_write( ext_bitmap_vblk, ext_bitmap_buf, ext_bitmap_buf_size );
+    free( ext_bitmap_nvm_addr );
+    free( ext_bitmap_buf );
 }
 
 OcssdSuperBlock::~OcssdSuperBlock()
@@ -608,7 +672,8 @@ OcssdSuperBlock::~OcssdSuperBlock()
     // release
 }
 
-std::string OcssdSuperBlock::txt() {
+std::string OcssdSuperBlock::txt()
+{
     return "OcssdSuperBlock";
 }
 
@@ -621,13 +686,126 @@ void OcssdSuperBlock::flush()
 void OcssdSuperBlock::flush_sb()
 {
     if( sb_need_flush ){
+        sb_need_flush  = 0;
         // write sb_meta into SSD
+        OCSSD_DBG_INFO( this, "Flush super block");
+        size_t zero = 0;
+        blk_addr_handle* bah_0_ = ocssd_bah->get_blk_addr_handle( zero );
+        if( this->sb_addr == nullptr ){
+            this->sb_addr = new struct blk_addr;
+            bah_0_->MakeBlkAddr( zero, zero, zero, zero, sb_addr);
+        }
+        struct nvm_addr sb_nvm_addr;
+        sb_nvm_addr.ppa = 0;
+        bah_0_->convert_2_nvm_addr( sb_addr, &sb_nvm_addr );
+        if( this->sb_vblk == nullptr ){
+            this->sb_vblk = nvm_vblk_alloc( dev, &sb_nvm_addr, 1);
+            sb_meta_buf_size = ocssd_geo_.block_nbytes;
+            sb_meta_buf = (char *) nvm_buf_alloc( geo, sb_meta_buf_size );
+        }
+        size_t offset = 0;
+
+        size_t size_ = sizeof( struct ocssd_super_block_meta );
+        memcpy( sb_meta_buf + offset, &sb_meta, size_ );
+        offset += size_;
+        // xx_st_blk_idx - uin32_t
+        size_ = sizeof(uint32_t) * sb_meta.fn_ch_nr;
+        memcpy( sb_meta_buf + offset, fn_st_blk_idx, size_ );
+        offset += size_;
+        size_ = sizeof(uint32_t) * sb_meta.fm_ch_nr;
+        memcpy( sb_meta_buf + offset, fm_st_blk_idx, size_ );
+        offset += size_;
+        size_ = sizeof(uint32_t) * sb_meta.ext_ch_nr;
+        memcpy( sb_meta_buf + offset, ext_st_blk_idx, size_ );
+        offset += size_;
+        // xx_blk_nr size_t
+        size_ = sizeof( size_t ) * sb_meta.fn_ch_nr;
+        memcpy( sb_meta_buf + offset, fn_blk_nr, size_ );
+        offset += size_;
+        size_ = sizeof( size_t ) * sb_meta.fm_ch_nr;
+        memcpy( sb_meta_buf + offset, fm_blk_nr, size_ );
+        offset += size_;
+        size_ = sizeof( size_t ) * sb_meta.ext_ch_nr;
+        memcpy( sb_meta_buf + offset, ext_blk_nr, size_ );
+        offset += size_;
+        // pad
+        memset( sb_meta_buf + offset, 1, sb_meta_buf_size - offset);
+        // vblk write
+        nvm_vblk_write( sb_vblk, sb_meta_buf, sb_meta_buf_size );
+//    uint64_t *magic = ( uint64_t* )sb_meta_buf;
+//    uint64_t a = SUPER_BLK_MAGIC_NUM;
     }
 }
 
 void OcssdSuperBlock::flush_nat()
 {
     if( nat_need_flush ){
+        nat_need_flush  = 0;
+        size_t offset = 0;
+        size_t size_  = 0;
+        blk_addr_handle* bah_0_ = ocssd_bah->get_blk_addr_handle( 0 );
         // write nat table into SSD
+        OCSSD_DBG_INFO( this, "flush FN  NAT table");
+        if( fn_nat_vblk == nullptr ) {
+            struct blk_addr fn_nat_blk = *sb_addr;
+            struct nvm_addr *fn_nat_nvm_addr = new struct nvm_addr[sb_meta.fn_nat_blk_nr];
+            for (int i = 0; i < sb_meta.fn_nat_blk_nr; ++i) {
+                bah_0_->BlkAddrAdd(1, &fn_nat_blk);
+                fn_nat_nvm_addr[i].ppa = 0;
+                bah_0_->convert_2_nvm_addr( &fn_nat_blk, &( fn_nat_nvm_addr[i] ) );
+            }
+            fn_nat_vblk = nvm_vblk_alloc(dev, fn_nat_nvm_addr, sb_meta.fn_nat_blk_nr);    // get fn vblk
+            free(fn_nat_nvm_addr);
+            fn_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.fn_nat_blk_nr;
+            fn_nat_buf = (char *) nvm_buf_alloc(geo, fn_nat_buf_size);
+        }
+        offset = 0;
+        size_ = sizeof(struct nat_entry) * this->nat_fn->max_length;
+        memcpy( fn_nat_buf + offset, this->nat_fn->entry, size_ );
+        offset += size_;
+        memset( fn_nat_buf + offset, 1 , fn_nat_buf_size - offset );
+        nvm_vblk_write( fn_nat_vblk, fn_nat_buf, fn_nat_buf_size );
+
+        OCSSD_DBG_INFO( this, "flush FM  NAT table");
+        if( fm_nat_vblk == nullptr ) {
+            struct blk_addr fm_nat_blk = *sb_addr;
+            struct nvm_addr *fm_nat_nvm_addr = new struct nvm_addr[sb_meta.fn_nat_blk_nr];
+            for (int i = 0; i < sb_meta.fm_nat_blk_nr; ++i) {
+                bah_0_->BlkAddrAdd(1, &fm_nat_blk);
+                fm_nat_nvm_addr[i].ppa = 0;
+                bah_0_->convert_2_nvm_addr( &fm_nat_blk, &( fm_nat_nvm_addr[i] ) );
+            }
+            fm_nat_vblk = nvm_vblk_alloc(dev, fm_nat_nvm_addr, sb_meta.fm_nat_blk_nr);    // get fm vblk
+            free(fm_nat_nvm_addr);
+            fm_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.fm_nat_blk_nr;
+            fm_nat_buf = (char *) nvm_buf_alloc(geo, fm_nat_buf_size);
+        }
+        offset = 0;
+        size_ = sizeof(struct nat_entry) * this->nat_fm->max_length;
+        memcpy( fm_nat_buf + offset, this->nat_fm->entry, size_ );
+        offset += size_;
+        memset( fm_nat_buf + offset, 1 , fm_nat_buf_size - offset );
+        nvm_vblk_write( fm_nat_vblk, fm_nat_buf, fm_nat_buf_size );
+
+        OCSSD_DBG_INFO( this, "flush EXT NAT table " );
+        if( ext_nat_vblk == nullptr ) {
+            struct blk_addr ext_nat_blk = *sb_addr;
+            struct nvm_addr *ext_nat_nvm_addr = new struct nvm_addr[sb_meta.ext_nat_blk_nr];
+            for (int i = 0; i < sb_meta.ext_nat_blk_nr; ++i) {
+                bah_0_->BlkAddrAdd(1, &ext_nat_blk);
+                ext_nat_nvm_addr[i].ppa = 0;
+                bah_0_->convert_2_nvm_addr( &ext_nat_blk, &( ext_nat_nvm_addr[i] ) );
+            }
+            ext_nat_vblk = nvm_vblk_alloc(dev, ext_nat_nvm_addr, sb_meta.ext_nat_blk_nr);    // get fm vblk
+            free(ext_nat_nvm_addr);
+            ext_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.ext_nat_blk_nr;
+            ext_nat_buf = (char *) nvm_buf_alloc(geo, ext_nat_buf_size);
+        }
+        offset = 0;
+        size_ = sizeof(struct nat_entry) * this->nat_ext->max_length;
+        memcpy( ext_nat_buf + offset, this->nat_ext->entry, size_ );
+        offset += size_;
+        memset( ext_nat_buf + offset, 1 , ext_nat_buf_size - offset );
+        nvm_vblk_write( ext_nat_vblk, ext_nat_buf, ext_nat_buf_size );
     }
 }

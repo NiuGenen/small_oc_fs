@@ -11,7 +11,7 @@ void file_name_blk_area_init(
     const struct nvm_geo* geo,
 	uint32_t st_ch, uint32_t ch_nr,
 	struct blk_addr* st_addr, size_t* addr_nr,
-	struct nat_table* nat)
+	struct nat_table* nat, uint32_t bitmap_blk_nr)
 {
     mba_file_name = new MetaBlkArea(
 		dev, geo,
@@ -19,6 +19,6 @@ void file_name_blk_area_init(
 		MBA_FILE_NAME_NAME,
 		st_ch, ch_nr,
 		st_addr, addr_nr,
-		nat
+		nat,bitmap_blk_nr
     );
 }

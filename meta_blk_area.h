@@ -44,7 +44,7 @@ public:
 		const char* mba_name,
 		uint32_t st_ch, uint32_t ed_ch,
 		struct blk_addr* st_addr, size_t* addr_nr,
-		struct nat_table* nat
+		struct nat_table* nat, uint32_t bitmap_blk_nr
 	);
 	~MetaBlkArea();
 
@@ -69,6 +69,7 @@ private:
 	struct blk_addr* meta_blk_addr;
 	size_t meta_blk_addr_size;
 
+    uint32_t bitmap_blk_nr;
 	uint8_t* map_buf;
 	size_t map_buf_size;
 	uint8_t* blk_map;

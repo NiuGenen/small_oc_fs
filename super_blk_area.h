@@ -116,6 +116,10 @@ private:
         uint32_t fm_ch_nr;   // uint32_t fm_st_blk_idx  [ fm_ch_nr  ]      uint32_t fm_blk_nr  [ fm_ch_nr  ]
         uint32_t ext_ch_nr;  // uint32_t ext_st_blk_idx [ ext_ch_nr ]      uint32_t ext_blk_nr [ ext_ch_nr ]
 
+        uint32_t fn_bitmap_blk_nr ;
+        uint32_t fm_bitmap_blk_nr ;
+        uint32_t ext_bitmap_blk_nr;
+
         uint64_t fn_obj_size;
         uint64_t fm_obj_size;
         uint64_t ext_obj_size;
