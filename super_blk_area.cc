@@ -7,6 +7,7 @@
 #include "liblightnvm.h"
 #include <stdio.h>
 #include <string.h>
+#include <liblightnvm.h>
 #include "dbg_info.h"
 
 #define OC_DEV_PATH "/dev/nvme0n1"
@@ -435,12 +436,18 @@ OcssdSuperBlock::OcssdSuperBlock()
 
     // read nat table from  formated OCSSD
     if( !need_format ) {
+        OCSSD_DBG_INFO( this, " - read fn nat table");
         struct blk_addr fn_nat_blk = *sb_addr;
         struct nvm_addr *fn_nat_nvm_addr = new struct nvm_addr[sb_meta.fn_nat_blk_nr];
         for (int i = 0; i < sb_meta.fn_nat_blk_nr; ++i) {
             bah_0_->BlkAddrAdd(1, &fn_nat_blk);
             fn_nat_nvm_addr[i].ppa = 0;
             bah_0_->convert_2_nvm_addr(&fn_nat_blk, &(fn_nat_nvm_addr[i]));
+            OCSSD_DBG_INFO( this, " - nvm_addr idx === " << i );
+            OCSSD_DBG_INFO( this, " - - nvm_addr ch    = " << fn_nat_nvm_addr[i].g.ch  );
+            OCSSD_DBG_INFO( this, " - - nvm_addr lun   = " << fn_nat_nvm_addr[i].g.lun );
+            OCSSD_DBG_INFO( this, " - - nvm_addr plane = " << fn_nat_nvm_addr[i].g.pl  );
+            OCSSD_DBG_INFO( this, " - - nvm_addr block = " << fn_nat_nvm_addr[i].g.blk );
         }
         if( this->fn_nat_vblk == nullptr ) {
             this->fn_nat_vblk = nvm_vblk_alloc(dev, fn_nat_nvm_addr, sb_meta.fn_nat_blk_nr);    // get fn vblk
@@ -455,12 +462,18 @@ OcssdSuperBlock::OcssdSuperBlock()
             offset += sizeof( struct nat_entry );
         }
 
+        OCSSD_DBG_INFO( this, " - read FM nat table");
         struct blk_addr fm_nat_blk = fn_nat_blk;
         struct nvm_addr *fm_nat_nvm_addr = new struct nvm_addr[sb_meta.fm_nat_blk_nr];
         for (int i = 0; i < sb_meta.fm_nat_blk_nr; ++i) {
             bah_0_->BlkAddrAdd(1, &fm_nat_blk);
             fm_nat_nvm_addr[i].ppa = 0;
             bah_0_->convert_2_nvm_addr(&fm_nat_blk, &(fm_nat_nvm_addr[i]));
+            OCSSD_DBG_INFO( this, " - nvm_addr idx === " << i );
+            OCSSD_DBG_INFO( this, " - - nvm_addr ch    = " << fm_nat_nvm_addr[i].g.ch  );
+            OCSSD_DBG_INFO( this, " - - nvm_addr lun   = " << fm_nat_nvm_addr[i].g.lun );
+            OCSSD_DBG_INFO( this, " - - nvm_addr plane = " << fm_nat_nvm_addr[i].g.pl  );
+            OCSSD_DBG_INFO( this, " - - nvm_addr block = " << fm_nat_nvm_addr[i].g.blk );
         }
         this->fm_nat_vblk = nvm_vblk_alloc(dev, fm_nat_nvm_addr, sb_meta.fm_nat_blk_nr);
         this->fm_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.fm_nat_blk_nr;
@@ -472,12 +485,18 @@ OcssdSuperBlock::OcssdSuperBlock()
             offset += sizeof( struct nat_entry );
         }
 
+        OCSSD_DBG_INFO( this, " - read EXT nat table");
         struct blk_addr ext_nat_blk = fm_nat_blk;
         struct nvm_addr *ext_nat_nvm_addr = new struct nvm_addr[sb_meta.ext_nat_blk_nr];
         for (int i = 0; i < sb_meta.ext_nat_blk_nr; ++i) {
             bah_0_->BlkAddrAdd(1, &ext_nat_blk);
             ext_nat_nvm_addr[i].ppa = 0;
             bah_0_->convert_2_nvm_addr(&ext_nat_blk, &(ext_nat_nvm_addr[i]));
+            OCSSD_DBG_INFO( this, " - nvm_addr idx === " << i );
+            OCSSD_DBG_INFO( this, " - - nvm_addr ch    = " << ext_nat_nvm_addr[i].g.ch  );
+            OCSSD_DBG_INFO( this, " - - nvm_addr lun   = " << ext_nat_nvm_addr[i].g.lun );
+            OCSSD_DBG_INFO( this, " - - nvm_addr plane = " << ext_nat_nvm_addr[i].g.pl  );
+            OCSSD_DBG_INFO( this, " - - nvm_addr block = " << ext_nat_nvm_addr[i].g.blk );
         }
         this->ext_nat_vblk = nvm_vblk_alloc(dev, ext_nat_nvm_addr, sb_meta.ext_nat_blk_nr);
         this->ext_nat_buf_size = geo->npages * geo->nsectors * geo->sector_nbytes * sb_meta.ext_nat_blk_nr;

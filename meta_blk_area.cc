@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <liblightnvm.h>
 #include "meta_blk_area.h"
 #include "dbg_info.h"
 #include "blk_addr.h"
@@ -64,6 +65,11 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
     blk_addr_handle* bah_ch_ = ocssd_bah->get_blk_addr_handle( st_ch );
     for(size_t i = 0; i < this->bitmap_blk_nr; ++i){
         bah_ch_->convert_2_nvm_addr( &(meta_blk_addr[i]), &(bitmap_blk_nvm_addr[i]) );
+        OCSSD_DBG_INFO( this, " - - bitmap blk nvm_addr : idx === " << i  );
+        OCSSD_DBG_INFO( this, " - - bitmap blk nvm_addr : ch    = " << bitmap_blk_nvm_addr[i].g.ch  );
+        OCSSD_DBG_INFO( this, " - - bitmap blk nvm_addr : lun   = " << bitmap_blk_nvm_addr[i].g.lun );
+        OCSSD_DBG_INFO( this, " - - bitmap blk nvm_addr : plane = " << bitmap_blk_nvm_addr[i].g.pl  );
+        OCSSD_DBG_INFO( this, " - - bitmap blk nvm_addr : block = " << bitmap_blk_nvm_addr[i].g.blk );
     }
     this->bitmap_vblk = nvm_vblk_alloc( dev, bitmap_blk_nvm_addr, this->bitmap_blk_nr );
     
