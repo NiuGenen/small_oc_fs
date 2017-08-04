@@ -44,57 +44,58 @@
 		- nluns     =   2
 		- nplanes   =   2
 		- nblocks   =   4
+	- super block & nat table store in SAME channel
 	- blk_nr
-		- sb_meta_blk_nr == 1 : 0 |0|0|0|0|
-		- nat_fn_blk_nr  == 1 : 1 |0|0|0|1|
-		- nat_fm_blk_nr  == 2 : 2 |1|0|0|0| 3 |1|0|0|1|
-		- nat_ext_blk_nr == 1 : 4 |0|0|1|0|
-		- fn_blk_nr  == 1 + 2 : 5 |0|0|1|1| 6 |1|0|1|0| 7 |1|0|1|1|
-		- fm_blk_nr  == 1 + 4 : 8 |0|1|0|0| 9 |0|1|0|1| 10|1|1|0|0| 11|1|1|0|1| 12|0|1|1|0|
-		- ext_blk_nr == 1 + 2 : 13|0|1|1|1| 14|1|1|1|0| 15|1|1|1|1|
+		- sb_meta_blk_nr == 1 : 0
+		- nat_fn_blk_nr  == 1 : 1
+		- nat_fm_blk_nr  == 2 : 4,5
+		- nat_ext_blk_nr == 1 : 8
+		- fn_blk_nr  == 1 + 2 : 9,2,3
+		- fm_blk_nr  == 1 + 4 : 6,7,10,11,12
+		- ext_blk_nr == 1 + 2 : 13,14,15
 	- channel 0
 		- lun 0
 			- plane 0
 				- 0 blk 0  : super block meta [0]
-				- 8 blk 1  : obj of file meta [0]
+				- 8 blk 1  : nat table of extent [0] 
 				- 16 blk 2 : data
 				- 24 blk 3 : data
 			- plane 1
-				- 4 blk 0  : nat table of extent [0]
+				- 4 blk 0  : nat table of file meta [0]
 				- 12 blk 1 : obj of file meta [4]
 				- 20 blk 2 : data
 				- 28 blk 3 : data
 		- lun 1
 			- plane 0
 				- 1 blk 0  : nat table of file name [0]
-				- 9 blk 1  : obj of file meta [1]
+				- 9 blk 1  : obj of file name [0] 
 				- 17 blk 2 : data
 				- 25 blk 3 : data
 			- plane 1
-				- 5 blk 0  : obj of file name [0]
+				- 5 blk 0  : nat table of file meta [1]
 				- 13 blk 1 : obj of extent [0]
 				- 21 blk 2 : data
 				- 29 blk 3 : data
 	- channel 1
 		- lun 0
 			- plane 0
-				- 2 blk 0  : nat table of file meta [0]
+				- 2 blk 0  : obj of file name [1]
 				- 10 blk 1 : obj of file meta [2]
 				- 18 blk 2 : data
 				- 26 blk 3 : data
 			- plane 1
-				- 6 blk 0  : obj of file name [1]
+				- 6 blk 0  : obj of file meta [0]
 				- 14 blk 1 : obj of extent [1]
 				- 22 blk 2 : data
 				- 30 blk 3 : data
 		- lun 1
 			- plane 0
-				- 3 blk 0  : nat table of file meta [1]
+				- 3 blk 0  : obj of file name [2] 
 				- 11 blk 1 : obj of file meta [3]
 				- 19 blk 2 : data
 				- 27 blk 3 : data
 			- plane 1
-				- 7 blk 0  : obj of file name [2] 
+				- 7 blk 0  : obj of file meta [1]
 				- 15 blk 1 : obj of extent [2]
 				- 23 blk 2 : data
 				- 31 blk 3 : data
