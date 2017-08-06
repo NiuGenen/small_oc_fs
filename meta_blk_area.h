@@ -77,12 +77,13 @@ private:
 	uint8_t* blk_map;
 	uint8_t** blk_page_map;
 	uint8_t*** blk_page_obj_map;	// bit map
+	void set_obj_state(uint32_t blk, uint16_t pg, uint8_t obj, uint8_t state);
 
 	uint32_t blk_act;
 	uint16_t page_act;
 	uint8_t obj_act;
 	void act_addr_set_state( uint8_t state );	// update bitmap with current act
-	void find_next_act_blk( size_t start_blk_idx );
+	void find_next_act_blk( uint32_t start_blk_idx );
 	void act_addr_add(size_t n);
 
 	struct nat_table* nat;
@@ -92,6 +93,7 @@ private:
 
 	void** obj_cache;
 	char *buf;
+	void flush_obj_cache();
 
 	std::string txt();
 	Nat_Obj_Addr_Type find_nat_addr_by_obj_id( Nat_Obj_ID_Type obj_id );

@@ -402,13 +402,15 @@ OcssdSuperBlock::OcssdSuperBlock()
 
     if( need_format ){
         OCSSD_DBG_INFO( this, "Not Fotmated DEV : " << OC_DEV_PATH );
-        exit(-1);
+        OCSSD_DBG_INFO( this, " - To format OCSSD ......");
+        format_ssd();
+//        exit(-1);
 //        sb_need_flush = 1;
 //        nat_need_flush = 1;
     }
 
     // 2. read nat table
-    OCSSD_DBG_INFO( this, "2. read NAT table");
+    OCSSD_DBG_INFO( this, "2. Read NAT table");
     // struct nat_table* nat_fn;
     // struct nat_table* nat_fm;
     // struct nat_table* nat_ext;
