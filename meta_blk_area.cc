@@ -127,6 +127,7 @@ MetaBlkArea::MetaBlkArea(   // first block to store bitmap
     nat_need_flush = 0;
 
     // obj cache
+    obj cache need to cache PAGE not OBJ
     obj_cache = (void**) malloc( sizeof(void*) * nat_max_length );
     OCSSD_DBG_INFO( this, " - build obj cache table");
 }
@@ -139,6 +140,7 @@ MetaBlkArea::~MetaBlkArea()
     if( blk_map != nullptr ) free( blk_map );
     if( blk_page_map != nullptr ) free( blk_page_map );
     if( blk_page_obj_map != nullptr ) free( blk_page_obj_map );
+    free obj cache
     if( obj_cache != nullptr) {
         for(size_t i = 0 ; i < nat->max_length; ++i){
             if( obj_cache[i] != nullptr ) free( obj_cache[ i ] ) ;
@@ -188,6 +190,7 @@ Nat_Obj_ID_Type MetaBlkArea::alloc_obj()
             nat->entry[i].state    = NAT_ENTRY_USED;
             act_addr_set_state( MBA_MAP_STATE_FULL );   // obj is full ( of course )
             act_addr_add( 1 );
+            malloc space for this obj in cache
             if( obj_cache[i] != nullptr ){
 //                free( obj_cache[i] );
                 OCSSD_DBG_INFO( this, "obj_cache[ " << i << "] not null. will be COVERED");
@@ -375,6 +378,8 @@ void MetaBlkArea::write_by_obj_id(Nat_Obj_ID_Type obj_id, void* obj)
     if( nat->entry[ obj_id ].state == NAT_ENTRY_FREE ||
         nat->entry[ obj_id ].state == NAT_ENTRY_DEAD ) return;
 
+    just write into cache
+    flush will write cache into SSD
     if( obj_cache[ obj_id ] != nullptr ){
         memcpy( obj_cache[ obj_id ], obj, obj_size );
         nat->entry[ obj_id ].state = NAT_ENTRY_MOVE;
@@ -389,7 +394,9 @@ void* MetaBlkArea::read_by_obj_id(Nat_Obj_ID_Type obj_id)
     //if( nat->entry[obj_id].obj_id != obj_id ) return; 
 
     void* ret = malloc( obj_size );
-    
+
+    read from cache first
+    then read one page
     if( obj_cache[ obj_id ] == nullptr ){
         struct nvm_addr nvm_addr_;
         nvm_addr_.ppa = 0;
@@ -422,6 +429,7 @@ void MetaBlkArea::flush_obj_cache()
             ocssd_bah->get_blk_addr_handle( 0 )->convert_2_nvm_addr(&(meta_blk_addr[this->nat->entry[i].blk_idx]), &nvm_addr_obj);
             // NEED TO CHANGE CACHE
             // cache granularity should be PAGE
+            there need to flush obj cache into ssd
         }
     }
 }
