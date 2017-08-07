@@ -629,7 +629,7 @@ void OcssdSuperBlock::format_ssd() {
     struct nvm_vblk* fn_bitmap_vblk = nvm_vblk_alloc( dev, fn_bitmap_nvm_addr, sb_meta.fn_bitmap_blk_nr );
     size_t fn_bitmap_buf_size = ocssd_geo_.block_nbytes * sb_meta.fn_bitmap_blk_nr;
     void* fn_bitmap_buf = (void *) malloc( fn_bitmap_buf_size );
-    memset( fn_bitmap_buf, MBA_MAP_STATE_FREE, fn_bitmap_buf_size );    // set all 0
+    memset( fn_bitmap_buf, 0, fn_bitmap_buf_size );    // set all 0
     nvm_vblk_write( fn_bitmap_vblk, fn_bitmap_buf, fn_bitmap_buf_size );
     free( fn_bitmap_nvm_addr );
     free( fn_bitmap_buf );
@@ -655,7 +655,7 @@ void OcssdSuperBlock::format_ssd() {
     struct nvm_vblk* fm_bitmap_vblk = nvm_vblk_alloc( dev, fm_bitmap_nvm_addr, sb_meta.fm_bitmap_blk_nr );
     size_t fm_bitmap_buf_size = ocssd_geo_.block_nbytes * sb_meta.fm_bitmap_blk_nr;
     void* fm_bitmap_buf = (void *) malloc( fm_bitmap_buf_size );
-    memset( fm_bitmap_buf, MBA_MAP_STATE_FREE, fm_bitmap_buf_size );    // set all 0
+    memset( fm_bitmap_buf, 0, fm_bitmap_buf_size );    // set all 0
     nvm_vblk_write( fm_bitmap_vblk, fm_bitmap_buf, fm_bitmap_buf_size );
     free( fm_bitmap_nvm_addr );
     free( fm_bitmap_buf );
@@ -681,7 +681,7 @@ void OcssdSuperBlock::format_ssd() {
     struct nvm_vblk* ext_bitmap_vblk = nvm_vblk_alloc( dev, ext_bitmap_nvm_addr, sb_meta.ext_bitmap_blk_nr );
     size_t ext_bitmap_buf_size = ocssd_geo_.block_nbytes * sb_meta.ext_bitmap_blk_nr;
     void* ext_bitmap_buf = (void *) malloc( ext_bitmap_buf_size );
-    memset( ext_bitmap_buf, MBA_MAP_STATE_FREE, ext_bitmap_buf_size );    // set all 0
+    memset( ext_bitmap_buf, 0, ext_bitmap_buf_size );    // set all 0
     nvm_vblk_write( ext_bitmap_vblk, ext_bitmap_buf, ext_bitmap_buf_size );
     free( ext_bitmap_nvm_addr );
     free( ext_bitmap_buf );

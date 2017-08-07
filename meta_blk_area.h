@@ -20,19 +20,21 @@ struct nat_entry{
 	uint8_t state;
 };//	8 + 4 + 2 + 1 + 1 = 16
 
-#define NAT_ENTRY_FREE	0	// free to alloc
-#define NAT_ENTRY_USED	1	// already in use
-#define NAT_ENTRY_DEAD	2	// been de_alloced
-#define NAT_ENTRY_MOVE	4	// been writed
+#define NAT_ENTRY_FREE 0	// free to alloc
+#define NAT_ENTRY_USED 1	// after alloc, NO obj address
+#define NAT_ENTRY_WRIT 2	// after write, HAVE obj address
 
 struct nat_table{
 	struct nat_entry* entry;
 	uint64_t max_length;
 };
 
-#define MBA_MAP_STATE_FREE 0 // all is free to use
-#define MBA_MAP_STATE_USED 1 // part is used & part is free
-#define MBA_MAP_STATE_FULL 2 // all is in use
+#define MBA_MAP_STATE_EMPT 0 // all is free to use
+#define MBA_MAP_STATE_PART 1 // part is used & part is free
+#define MBA_MAP_STATE_FULL 3 // all is in use
+#define MBA_MAP_OBJ_STATE_FREE 0
+#define MBA_MAP_OBJ_STATE_USED 1
+#define MBA_MAP_OBJ_STATE_DEAD 3
 
 // meta blk area
 class MetaBlkArea{
@@ -52,10 +54,12 @@ public:
 	void de_alloc_obj(Nat_Obj_ID_Type obj_id);
 	void write_by_obj_id(Nat_Obj_ID_Type obj_id, void* obj);
 	void* read_by_obj_id(Nat_Obj_ID_Type obj_id);
-	int if_nat_need_flush();
-	void after_nat_flush();
+
 	int need_GC();
 	void GC();
+
+	void print_bitmap();
+	void print_nat();
 
 private:
 	struct nvm_dev* dev;
@@ -78,26 +82,24 @@ private:
 	uint8_t** blk_page_map;
 	uint8_t*** blk_page_obj_map;	// bit map
 	void set_obj_state(uint32_t blk, uint16_t pg, uint8_t obj, uint8_t state);
+    size_t* blk_dead_obj_nr;	// per block
+	size_t all_dead_obj_nr;		// total dead obj
+	size_t gc_threshold;
 
 	uint32_t blk_act;
 	uint16_t page_act;
 	uint8_t obj_act;
-	void act_addr_set_state( uint8_t state );	// update bitmap with current act
+	void act_obj_set_state( uint8_t state );	// update bitmap with current act
 	void find_next_act_blk( uint32_t start_blk_idx );
 	void act_addr_add(size_t n);
 
 	struct nat_table* nat;
 	size_t nat_max_length;
-	size_t nat_dead_nr;
-	int nat_need_flush;
 
-	void** obj_cache;
-	char *buf;
-	void flush_obj_cache();
+	void *w_buf;
+	void *r_buf;
 
 	std::string txt();
-	Nat_Obj_Addr_Type find_nat_addr_by_obj_id( Nat_Obj_ID_Type obj_id );
-	struct nvm_addr* convert_nat_addr_to_nvm_addr(Nat_Obj_Addr_Type nat_addr);
 };
 
 #endif
