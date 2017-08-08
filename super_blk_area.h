@@ -125,7 +125,6 @@ private:
         uint64_t ext_obj_size;
 
         uint64_t fn_root_obj_id;
-        uint64_t ext_root_obj_id;
     };
     uint32_t* fn_st_blk_idx;
     uint32_t* fm_st_blk_idx;
@@ -134,6 +133,10 @@ private:
     size_t* fn_blk_nr;
     size_t* fm_blk_nr;
     size_t* ext_blk_nr;
+
+    uint64_t* ext_root_obj_id; // size = nchannels
+
+    uint32_t* blk_idx; // for calculate SSD layout
 
     struct blk_addr* sb_addr;
     struct nvm_vblk* sb_vblk;

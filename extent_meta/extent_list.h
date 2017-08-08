@@ -1,8 +1,11 @@
 #ifndef _EXTENT_LIST_H_
 #define _EXTENT_LIST_H_
 
-#include "extent_blkhandle.h"
-#include "extent_type.h"
+//#include "extent_blkhandle.h"
+//#include "extent_type.h"
+//#include "../meta_blk_area.h"
+
+#include "extent_blk_area.h"
 
 // 24 B
 // extent stored in eobj
@@ -18,19 +21,20 @@ struct ext_meta_obj{
     uint32_t free_vblk_num;
 };
 
-#define Ext_Node_Half_Degree 4
+#define Ext_Node_Half_Degree 64
 #define Ext_Node_Degree ( Ext_Node_Half_Degree * 2 )
 
 // 4 KB
 struct ext_node{
+	Nat_Obj_ID_Type obj_id;
 	uint16_t ecount;
 	//uint16_t first_avail_index;
 
 	struct ext_meta_obj mobjs[ Ext_Node_Degree ];
 	struct extent exts[ Ext_Node_Degree ];
 
-    Ext_Node_ID_Type prev;
-    Ext_Node_ID_Type next;
+    Nat_Obj_ID_Type prev;
+    Nat_Obj_ID_Type next;
 };
 
 // extent_descriptor
@@ -47,14 +51,14 @@ struct extent_descriptor{
 
 class ExtentList{
 public:
-    ExtentList(
+    ExtentList(Nat_Obj_ID_Type root_id,
         int ch,
         uint64_t blk_st, uint64_t blk_ed,
         int ext_size,
         blk_addr_handle* handler);
     ~ExtentList();
 
-	void init();
+	void init(Nat_Obj_ID_Type root_id);
 
 	int getChannel(){ return ch; }
 	int getExtSize(){ return ext_size; }
@@ -69,7 +73,7 @@ private:
 	uint64_t blk_st;
 	uint64_t blk_ed;
 	uint64_t blk_nr;
-    Ext_Node_ID_Type head_eobj_id;
+    Nat_Obj_ID_Type  head_eobj_id;
     blk_addr_handle* handler;
 };
 

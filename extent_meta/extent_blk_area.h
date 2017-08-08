@@ -13,4 +13,10 @@ void extent_blk_area_init(
 	struct nat_table* nat, uint32_t bitmap_blk_nr
 );
 
+void extent_tree_init(
+		size_t nchs,
+		Nat_Obj_ID_Type* root_id,
+		uint32_t * extent_st_blk_idx
+);
+
 #endif

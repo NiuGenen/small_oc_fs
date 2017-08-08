@@ -1,8 +1,12 @@
 #include "extent_list.h"
-#include "extent_stub.h"
+//#include "extent_stub.h"
 #include<iostream>
 
+extern BlkAddrHandle* occsd_bah;
+extern MetaBlkArea *mba_extent;
+
 ExtentList::ExtentList(
+    Nat_Obj_ID_Type root_id,
     int ch,
     uint64_t blk_st, uint64_t blk_ed,
     int ext_size,
@@ -14,9 +18,9 @@ ExtentList::ExtentList(
     this->blk_ed = blk_ed;
     this->ext_size = ext_size;
     this->handler = handler;
-    this->blk_nr = handler->GetBlkNr();
+    this->blk_nr = handler->get_blk_nr();
 
-    init();
+    init(root_id);
 }
 
 ExtentList::~ExtentList()
@@ -24,31 +28,35 @@ ExtentList::~ExtentList()
 
 }
 
-void ExtentList::init()
+void ExtentList::init(Nat_Obj_ID_Type root_id)
 {
     std::cout << "init()" << std::endl;
-    head_eobj_id = ext_alloc_obj_id();
-    struct ext_node* eobj = (struct ext_node*) ext_read_by_obj_id( head_eobj_id );
+    if( root_id == 0 ) {
+        head_eobj_id = mba_extent->alloc_obj();
+        struct ext_node *eobj = (struct ext_node *) mba_extent->read_by_obj_id(head_eobj_id);
 
-    eobj->ecount = 1;
+        eobj->ecount = 1;
 
-    eobj->mobjs[0].free_vblk_num = blk_nr / ext_size;
-   
-    eobj->exts[0].addr_st_buf = this->blk_st;
-    eobj->exts[0].addr_ed_buf = this->blk_ed;
-    eobj->exts[0].free_bitmap = 0;
-    eobj->exts[0].junk_bitmap = 0;
+        eobj->mobjs[0].free_vblk_num = blk_nr / ext_size;
 
-    eobj->prev = 0;
-    eobj->next = 0;
+        eobj->exts[0].addr_st_buf = this->blk_st;
+        eobj->exts[0].addr_ed_buf = this->blk_ed;
+        eobj->exts[0].free_bitmap = 0;
+        eobj->exts[0].junk_bitmap = 0;
 
-    ext_write_by_obj_id( head_eobj_id, eobj);
+        eobj->prev = 0;
+        eobj->next = 0;
+
+        mba_extent->write_by_obj_id(head_eobj_id, eobj);
+    }else{
+        head_eobj_id = root_id;
+    }
 }
 
 struct extent_descriptor* ExtentList::getNewExt()
 {
-    Ext_Node_ID_Type eobj_id = head_eobj_id;
-    struct ext_node* eobj = (struct ext_node*) ext_read_by_obj_id( eobj_id );
+    Nat_Obj_ID_Type eobj_id = head_eobj_id;
+    struct ext_node* eobj = (struct ext_node*) mba_extent->read_by_obj_id( eobj_id );
     struct extent_descriptor* edes = nullptr;
 
 _START_EOBJ_:
@@ -67,7 +75,10 @@ _START_EOBJ_:
                 eobj->mobjs[i].free_vblk_num -= 1;
                 
                 edes->addr_st_buf = eobj->exts[i].addr_st_buf;
-                handler->BlkAddrAdd( ext_size, &(eobj->exts[i].addr_st_buf) );
+                struct blk_addr blk_addr_;
+                blk_addr_.__buf = eobj->exts[i].addr_st_buf;
+                handler->BlkAddrAdd( ext_size, &(blk_addr_) );
+                eobj->exts[i].addr_st_buf = blk_addr_.__buf;
                 edes->addr_ed_buf = eobj->exts[i].addr_st_buf;
                 edes->use_bitmap = 0;
 
@@ -86,8 +97,8 @@ _START_EOBJ_:
                 // => [ 0 , H - 1 ] + [ H , 2 * H - 1 ]
                 //        { eobj }       { n_eobj }
                 if( eobj->ecount >= Ext_Node_Degree ){
-                    Ext_Node_ID_Type n_eobj_id = ext_alloc_obj_id();
-                    struct ext_node* n_eobj = (struct ext_node*) ext_read_by_obj_id( n_eobj_id );
+                    Nat_Obj_ID_Type n_eobj_id = mba_extent->alloc_obj();
+                    struct ext_node* n_eobj = (struct ext_node*) mba_extent->read_by_obj_id( n_eobj_id );
 
                     for(int j = 0; j < Ext_Node_Half_Degree; ++j){
                         n_eobj->mobjs[j] = eobj->mobjs[ Ext_Node_Half_Degree + j];
@@ -100,8 +111,8 @@ _START_EOBJ_:
                     eobj->next = n_eobj_id;
                     n_eobj->prev = eobj_id;
 
-                    ext_write_by_obj_id( n_eobj_id, n_eobj );
-                    ext_write_by_obj_id( eobj_id, eobj);
+                    mba_extent->write_by_obj_id( n_eobj_id, n_eobj );
+                    mba_extent->write_by_obj_id( eobj_id, eobj);
                 }
                 break;
             }
@@ -113,7 +124,7 @@ _START_EOBJ_:
     }
     if( eobj->next != 0 ){
         eobj_id = eobj->next;
-        eobj = (struct ext_node*) ext_read_by_obj_id( eobj_id );
+        eobj = (struct ext_node*) mba_extent->read_by_obj_id( eobj_id );
         goto _START_EOBJ_;
     }
     return nullptr;
@@ -121,25 +132,33 @@ _START_EOBJ_:
 
 void ExtentList::putExt(struct extent_descriptor* edes)
 {
-    Ext_Node_ID_Type eobj_id = head_eobj_id;
-    struct ext_node* eobj = (struct ext_node*) ext_read_by_obj_id( eobj_id );
+    Nat_Obj_ID_Type eobj_id = head_eobj_id;
+    struct ext_node* eobj = (struct ext_node*) mba_extent->read_by_obj_id( eobj_id );
 
     // eobj.st <= edes.st < edes.ed <= eobj.ed
+    struct blk_addr eobj_st, eobj_ed, edes_st, edes_ed;
+    eobj_st.__buf = eobj->exts[0].addr_st_buf;
+    eobj_ed.__buf = eobj->exts[ eobj->ecount - 1].addr_ed_buf;
+    edes_st.__buf = edes->addr_st_buf;
+    edes_ed.__buf = edes->addr_ed_buf;
     while(!(
-        handler->BlkAddrCmp( &(eobj->exts[0].addr_st_buf), &(edes->addr_st_buf) )<=0 &&
-        handler->BlkAddrCmp( &(edes->addr_ed_buf), &(eobj->exts[ eobj->ecount - 1].addr_ed_buf) ) <=0
+        handler->BlkAddrCmp( &(eobj_st), &(edes_st) )<=0 &&
+        handler->BlkAddrCmp( &(edes_ed), &(eobj_ed) ) <=0
         ))
     {
         eobj_id = eobj->next;
         if( eobj_id == 0 ) break;
-        eobj = (struct ext_node*) ext_read_by_obj_id( eobj_id );
+        eobj = (struct ext_node*) mba_extent->read_by_obj_id( eobj_id );
+        eobj_st.__buf = eobj->exts[0].addr_st_buf;
+        eobj_ed.__buf = eobj->exts[ eobj->ecount - 1].addr_ed_buf;
     }
 
     if( eobj_id == 0 ) return;
 
     int index = -1;
     for(int i = 0; i < eobj->ecount; ++i){
-        if( handler->BlkAddrCmp( &(eobj->exts[i].addr_st_buf), &(edes->addr_st_buf) )==0){
+        eobj_st.__buf = eobj->exts[ i ].addr_st_buf;
+        if( handler->BlkAddrCmp( &(eobj_st), &(edes_st) )==0){
             index = i;
             break;
         }
@@ -153,12 +172,12 @@ void ExtentList::putExt(struct extent_descriptor* edes)
 
 void ExtentList::GC()
 {
-    Ext_Node_ID_Type eobj_id = head_eobj_id;
-    struct ext_node* eobj = (struct ext_node*) ext_read_by_obj_id( eobj_id );
-    Ext_Node_ID_Type eobj_prev_id = 0;
+    Nat_Obj_ID_Type eobj_id = head_eobj_id;
+    struct ext_node* eobj = (struct ext_node*) mba_extent->read_by_obj_id( eobj_id );
+    Nat_Obj_ID_Type eobj_prev_id = 0;
     struct ext_node* eobj_prev = nullptr;
-    Ext_Node_ID_Type eobj_next_id = eobj->next;
-    struct ext_node* eobj_next = (struct ext_node*) ext_read_by_obj_id( eobj_next_id );
+    Nat_Obj_ID_Type eobj_next_id = eobj->next;
+    struct ext_node* eobj_next = (struct ext_node*) mba_extent->read_by_obj_id( eobj_next_id );
 
     while( eobj != nullptr ){
         std::cout<<"GC() erase eobj{"<<eobj_id<<"}"<<std::endl;
@@ -218,11 +237,11 @@ void ExtentList::GC()
                     eobj_prev->ecount += eobj->ecount;  // modify prev
                     eobj_prev->next = eobj_next_id;
                     eobj_next->prev = eobj_prev_id;     // modify next
-                    ext_dealloc_obj_id( eobj_id );      // delete eobj
+                    mba_extent->de_alloc_obj( eobj_id );      // delete eobj
                     eobj = eobj_next;                   // move next to eobj
                     eobj_id = eobj_next_id;
                     eobj_next_id = eobj->next;          // get new next
-                    eobj_next = (struct ext_node*) ext_read_by_obj_id( eobj->next );
+                    eobj_next = (struct ext_node*) mba_extent->read_by_obj_id( eobj->next );
                     break;
                 }
                 // borrow from next
@@ -245,9 +264,9 @@ void ExtentList::GC()
                     }
                     eobj->ecount += eobj_next->ecount;  // modify eobj
                     eobj->next = eobj_next->next;
-                    ext_dealloc_obj_id( eobj_next_id ); // delete old next
+                    mba_extent->de_alloc_obj( eobj_next_id ); // delete old next
                     eobj_next_id = eobj->next;     // get new next id
-                    eobj_next = (struct ext_node*) ext_read_by_obj_id( eobj_next_id ); // get new next
+                    eobj_next = (struct ext_node*) mba_extent->read_by_obj_id( eobj_next_id ); // get new next
                     eobj_next->prev = eobj_id;          // modify next
                     if_merge_with_next = 1;
                     break;
@@ -261,7 +280,7 @@ void ExtentList::GC()
         }
 
         if( eobj_prev != nullptr )
-            ext_write_by_obj_id( eobj_prev_id, eobj_prev );
+            mba_extent->write_by_obj_id( eobj_prev_id, eobj_prev );
         eobj_prev = eobj;
         eobj_prev_id = eobj_id;
 
@@ -270,17 +289,17 @@ void ExtentList::GC()
         
         if( eobj != nullptr){
             eobj_next_id = eobj->next;
-            eobj_next = (struct ext_node*) ext_read_by_obj_id( eobj->next );
+            eobj_next = (struct ext_node*) mba_extent->read_by_obj_id( eobj->next );
         }
     }
-    ext_write_by_obj_id( eobj_id , eobj );
+    mba_extent->write_by_obj_id( eobj_id , eobj );
 }
 
 void ExtentList::display()
 {
     
-    Ext_Node_ID_Type eobj_id = head_eobj_id;
-    struct ext_node* eobj = (struct ext_node*) ext_read_by_obj_id( eobj_id );
+    Nat_Obj_ID_Type eobj_id = head_eobj_id;
+    struct ext_node* eobj = (struct ext_node*) mba_extent->read_by_obj_id( eobj_id );
 
     std::cout << "**********" << std::endl;
     while( eobj != nullptr ){
@@ -296,6 +315,6 @@ void ExtentList::display()
         }
 
         eobj_id = eobj->next;
-        eobj = (struct ext_node*) ext_read_by_obj_id( eobj_id );
+        eobj = (struct ext_node*) mba_extent->read_by_obj_id( eobj_id );
     }
 }

@@ -168,14 +168,14 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
     sb_meta.ext_nat_blk_nr = ocssd_geo_.nat_ext_blk_nr; // super block & nat all in channel 0
 
 //    size_t p_nr_of_ch = ocssd_geo_.nluns;
-    uint32_t* blk_idx = new uint32_t[ ocssd_geo_.nchannels ];
+    this->blk_idx = new uint32_t[ ocssd_geo_.nchannels ];
     blk_idx[0] = 1; // index from 1
     blk_idx[0] += 1 + ocssd_geo_.nat_fn_blk_nr + ocssd_geo_.nat_fm_blk_nr + ocssd_geo_.nat_ext_blk_nr;
     for(size_t i = 1; i < ocssd_geo_.nchannels; ++i){
         blk_idx[i] = 1;
     }
 
-    uint32_t nchs = ocssd_geo_.nchannels;
+    size_t nchs = ocssd_geo_.nchannels;
     this->fn_st_blk_idx  = new uint32_t[ nchs ];
     this->fm_st_blk_idx  = new uint32_t[ nchs ];
     this->ext_st_blk_idx = new uint32_t[ nchs ];    // 0 means NOT SET yet
@@ -187,6 +187,8 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
     this->fn_blk_nr  = new size_t[ nchs ];
     this->fm_blk_nr  = new size_t[ nchs ];
     this->ext_blk_nr = new size_t[ nchs ];
+
+    this->ext_root_obj_id = new uint64_t[ nchs ];
 
     uint32_t ch = 0;
 
@@ -261,7 +263,13 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
     }
 
     sb_meta.fn_root_obj_id = 0;
-    sb_meta.ext_root_obj_id = 0;
+    for(size_t ch = 0; ch < nchs; ++ch){
+        this->ext_root_obj_id[ch] = 0;
+    }
+
+    for(size_t ch = 0; ch < nchs; ++ch){
+        this->blk_idx[ ch ] -= 1;
+    }
 
     OCSSD_DBG_INFO( this, " gen over");
 }
@@ -369,6 +377,11 @@ OcssdSuperBlock::OcssdSuperBlock()
     for(size_t i = 0; i < sb_meta.ext_ch_nr; ++i){
         OCSSD_DBG_INFO( this, "ext_st_blk_idx[ " << i << " ] = " << this->ext_st_blk_idx[i]);
         OCSSD_DBG_INFO( this, "ext_blk_nr    [ " << i << " ] = " << this->ext_blk_nr[i]);
+    }
+
+    OCSSD_DBG_INFO( this, "==========================");
+    for(size_t i = 0; i < geo->nchannels; ++i){
+        OCSSD_DBG_INFO( this, "Channel " << i << " Data start : " << blk_idx[i] );
     }
 
     addr_init( dev, geo );   // init blk_handler
@@ -567,9 +580,11 @@ OcssdSuperBlock::OcssdSuperBlock()
     // 4. init DirBTree & ExtentTree
     OCSSD_DBG_INFO( this, "4. init DirBTree & ExtenrTree");
     OCSSD_DBG_INFO( this, " - dirBTree root = " << sb_meta.fn_root_obj_id );
-    OCSSD_DBG_INFO( this, " - extTree  root = " << sb_meta.ext_root_obj_id);
+    for(size_t i = 0; i < geo->nchannels; ++i)
+        OCSSD_DBG_INFO( this, " - extTree  root = " << this->ext_root_obj_id[i]);
 
     file_name_btree_init( sb_meta.fn_root_obj_id );
+    extent_tree_init(geo->nchannels, this->ext_root_obj_id, this->blk_idx);
 }
 
 void OcssdSuperBlock::format_ssd() {

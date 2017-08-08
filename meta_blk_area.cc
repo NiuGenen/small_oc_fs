@@ -412,11 +412,17 @@ void MetaBlkArea::GC()
 void* MetaBlkArea::read_by_obj_id(Nat_Obj_ID_Type obj_id)
 {
     if( obj_id <=0 || obj_id >= nat_max_length ) return nullptr;
-    if( nat->entry[ obj_id ].state == NAT_ENTRY_USED ||
+    if( /*nat->entry[ obj_id ].state == NAT_ENTRY_USED || */
         nat->entry[ obj_id ].state == NAT_ENTRY_FREE ) return nullptr;
     //if( nat->entry[obj_id].obj_id != obj_id ) return;
 
     void* ret = malloc( obj_size );
+
+    if( nat->entry[ obj_id ].state == NAT_ENTRY_USED ){
+        *((Nat_Obj_ID_Type*)ret) = obj_id;
+        memset( (char* )ret + sizeof(Nat_Obj_ID_Type), 0, obj_size - sizeof(Nat_Obj_ID_Type) );
+        return ret;
+    }
 
     uint32_t blk_idx = this->nat->entry[ obj_id ].blk_idx;
     uint16_t pg_idx  = this->nat->entry[ obj_id ].page;
