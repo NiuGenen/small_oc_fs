@@ -9,7 +9,7 @@
 // NAT table for obj addressing
 
 typedef uint64_t Nat_Obj_ID_Type;
-typedef uint32_t Nat_Obj_Addr_Type;
+//typedef uint32_t Nat_Obj_Addr_Type;
 
 struct nat_entry{
 	Nat_Obj_ID_Type obj_id;

@@ -260,6 +260,9 @@ void OcssdSuperBlock::gen_ocssd_geo(const nvm_geo* geo) {
         this->ext_st_blk_idx[ i ] -= 1;
     }
 
+    sb_meta.fn_root_obj_id = 0;
+    sb_meta.ext_root_obj_id = 0;
+
     OCSSD_DBG_INFO( this, " gen over");
 }
 
@@ -560,6 +563,13 @@ OcssdSuperBlock::OcssdSuperBlock()
         ext_st_blk, ext_blk_nr,
         nat_ext, sb_meta.ext_bitmap_blk_nr
     );// */
+
+    // 4. init DirBTree & ExtentTree
+    OCSSD_DBG_INFO( this, "4. init DirBTree & ExtenrTree");
+    OCSSD_DBG_INFO( this, " - dirBTree root = " << sb_meta.fn_root_obj_id );
+    OCSSD_DBG_INFO( this, " - extTree  root = " << sb_meta.ext_root_obj_id);
+
+    file_name_btree_init( sb_meta.fn_root_obj_id );
 }
 
 void OcssdSuperBlock::format_ssd() {

@@ -123,6 +123,9 @@ private:
         uint64_t fn_obj_size;
         uint64_t fm_obj_size;
         uint64_t ext_obj_size;
+
+        uint64_t fn_root_obj_id;
+        uint64_t ext_root_obj_id;
     };
     uint32_t* fn_st_blk_idx;
     uint32_t* fm_st_blk_idx;

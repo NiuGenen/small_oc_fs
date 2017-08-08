@@ -15,4 +15,8 @@ void file_name_blk_area_init(
 	struct nat_table* nat, uint32_t bitmap_blk_nr
 );
 
+void file_name_btree_init(
+		Nat_Obj_ID_Type root_id
+);
+
 #endif

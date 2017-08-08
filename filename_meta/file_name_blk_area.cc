@@ -1,7 +1,9 @@
 #include "file_name_blk_area.h"
+#include "DirBTree.h"
 
 //global var
 MetaBlkArea *mba_file_name;
+DirBTree* dirBTree;
 
 #define MBA_FILE_NAME_OBJ_SIZE  4096
 #define MBA_FILE_NAME_NAME      "MBA_FILE_NAME"
@@ -21,4 +23,9 @@ void file_name_blk_area_init(
 		st_addr, addr_nr,
 		nat,bitmap_blk_nr
     );
+}
+
+void file_name_btree_init( Nat_Obj_ID_Type root_id)
+{
+	dirBTree = new DirBTree( root_id );
 }
