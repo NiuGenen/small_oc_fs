@@ -13,7 +13,7 @@
 #define OC_DEV_PATH "/dev/nvme0n1"
 #define SUPER_BLK_MAGIC_NUM 0x1234567812345678
 
-#define OCSSD_REFORMAT_SSD 0
+#define OCSSD_REFORMAT_SSD 1
 
 extern BlkAddrHandle* ocssd_bah;
 
