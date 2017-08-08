@@ -1,12 +1,15 @@
 #include "super_blk_area.h"
 #include "meta_blk_area.h"
 #include "filename_meta/DirBTree.h"
+#include <stdlib.h>
 
 extern MetaBlkArea *mba_file_name;
 
 int main()
 {
     OcssdSuperBlock oc_sb;
+
+    srand((unsigned int)time(0));
 
     printf("\n");
 
@@ -21,27 +24,31 @@ int main()
         mba_file_name->write_by_obj_id( obj_id[i], obj );
     }
 
-    printf("=========================================\n");
+    printf("====== after alloc & write ==============\n");
 //    mba_file_name->print_nat();
     mba_file_name->print_bitmap();
     printf("=========================================\n");
 
-    for( int i = 0; i < 512; i += 2 ){
-        mba_file_name->de_alloc_obj( obj_id[ i ] );
-        obj_id[ i ] = 0;
+    for( int i = 0; i < 300; i += 2 ){
+        int obj_id_ = random() % test_size;
+        if( obj_id[ obj_id_ ] > 0 )
+            mba_file_name->de_alloc_obj( obj_id[ obj_id_ ] );
+        obj_id[ obj_id_ ] = 0;
     }
 
-    printf("=========================================\n");
+    printf("========== after dealloc ================\n");
 //    mba_file_name->print_nat();
     mba_file_name->print_bitmap();
     printf("=========================================\n");
 
     mba_file_name->GC();
 
-    printf("=========================================\n");
+    printf("========= after GC ======================\n");
 //    mba_file_name->print_nat();
     mba_file_name->print_bitmap();
     printf("=========================================\n");
+
+    mba_file_name->flush();
 
     return 0;
 }

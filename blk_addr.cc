@@ -11,6 +11,9 @@ blk_addr_handle::blk_addr_handle(struct nvm_dev* d, struct nvm_geo const * g, st
 
 blk_addr_handle::~blk_addr_handle()
 {
+//	if( tm_ != nullptr ){
+//		free( tm_ );
+//	} // it is freed bt BlkAddrHandle
 }
 
 // get binary mask of @x
@@ -432,4 +435,8 @@ void addr_init(struct nvm_dev* dev, const struct nvm_geo *geo)
     if( ocssd_bah == nullptr ) {
 		ocssd_bah = new BlkAddrHandle(dev, geo);
 	}
+}
+
+void addr_free(){
+	delete ocssd_bah;
 }

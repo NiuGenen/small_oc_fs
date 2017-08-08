@@ -152,17 +152,21 @@ void MetaBlkArea::find_next_act_blk( uint32_t last_blk_idx )
             blk_act = blk_idx;
             uint16_t page_idx = 0;
             for(page_idx = 0; page_idx < geo->npages; ++page_idx ){
-                if( blk_page_map[ blk_act ][ page_idx ] != MBA_MAP_STATE_FULL ){
+                if( blk_page_map[ blk_act ][ page_idx ] != MBA_MAP_STATE_EMPT ) {
                     page_act = page_idx;
-                    uint8_t obj_idx = 0;
-                    for( obj_idx = 0; obj_idx < obj_nr_per_page; ++obj_idx ){
-                        if( blk_page_obj_map[ blk_act ][ page_act ][ obj_idx ] == MBA_MAP_OBJ_STATE_FREE )
-                        {
-                            obj_act = obj_idx;
-                            return;
-                        }
-                    }
+                    obj_act = 0;
                 }
+//                if( blk_page_map[ blk_act ][ page_idx ] != MBA_MAP_STATE_FULL ){
+//                    page_act = page_idx;
+//                    uint8_t obj_idx = 0;
+//                    for( obj_idx = 0; obj_idx < obj_nr_per_page; ++obj_idx ){
+//                        if( blk_page_obj_map[ blk_act ][ page_act ][ obj_idx ] == MBA_MAP_OBJ_STATE_FREE )
+//                        {
+//                            obj_act = obj_idx;
+//                            return;
+//                        }
+//                    }
+//                }
             }
         }
         blk_idx = ( blk_idx + 1 ) % (uint32_t ) data_blk_nr;
@@ -360,6 +364,8 @@ void MetaBlkArea::GC()
                         for(uint32_t i = 0; i < this->data_blk_nr; ++i ){
                             if( blk_map[ i ] == MBA_MAP_STATE_EMPT && i != blk_act ){
                                 blk_destn = i;
+                                destn_page_obj_count = 0;
+                                destn_pg_idx = 0;
                                 OCSSD_DBG_INFO( this, " - blk destn = " << blk_destn );
                                 break;
                             }
@@ -368,8 +374,11 @@ void MetaBlkArea::GC()
                 }
             }
         }// end loop for all page in source block
+        OCSSD_DBG_INFO( this, " - erease source block");
         nvm_addr_surce.g.pg = 0;
         nvm_addr_erase( dev, &nvm_addr_surce, 1 , NVM_FLAG_PMODE_SNGL, &ret);
+
+        OCSSD_DBG_INFO( this, " - update bitmap");
         blk_map[ blk_surce ] = MBA_MAP_STATE_EMPT;
         for(size_t pg = 0; pg < geo->npages; ++pg ){
             blk_page_map[ blk_surce ][ pg ] = MBA_MAP_STATE_EMPT;
@@ -379,12 +388,14 @@ void MetaBlkArea::GC()
                 blk_page_obj_map[ blk_surce ][ pg ][ obj ] = MBA_MAP_OBJ_STATE_FREE;
             }
         }
+        OCSSD_DBG_INFO( this, " - update dead block counter");
         this->all_dead_obj_nr -= this->blk_dead_obj_nr[ blk_surce ];
         this->blk_dead_obj_nr[ blk_surce ] = 0;
     }// end loop for all source block
     if( destn_page_obj_count > 0 ){ // last page is not full
+        OCSSD_DBG_INFO( this, " - write last page for destn");
         for(uint8_t obj = destn_page_obj_count; obj < obj_nr_per_page; ++obj){
-
+            set_obj_state( blk_destn, destn_page_obj_count, obj, MBA_MAP_OBJ_STATE_DEAD );
         }
         memset( gc_buf_destn_page + destn_page_obj_count * obj_size, 0, geo->page_nbytes - destn_page_obj_count * obj_size);
         struct blk_addr* blk_addr_destn = &( this->meta_blk_addr[ this->bitmap_blk_nr + blk_destn ] );
@@ -469,6 +480,82 @@ void MetaBlkArea::write_by_obj_id(Nat_Obj_ID_Type obj_id, void* obj)
 std::string MetaBlkArea::txt()
 {
     return "MetaBlockArea";
+}
+
+void MetaBlkArea::flush()
+{
+    flush_data();   // flush data may change bitmap
+    flush_bitmap();
+}
+
+void MetaBlkArea::flush_bitmap()
+{
+    OCSSD_DBG_INFO( this, "Flush bitmap");
+
+    nvm_vblk_erase( this->bitmap_vblk );
+    OCSSD_DBG_INFO( this, " - erease vblk");
+
+    size_t size_ = 0;
+    size_t offset = 0;
+
+    if( map_buf == nullptr ){
+        map_buf = (uint8_t * )malloc( map_buf_size );
+    }
+
+    size_ = sizeof( uint8_t ) * this->data_blk_nr;
+    memcpy(map_buf + offset, blk_map, size_);
+    offset += size_;
+
+    size_ = sizeof( uint8_t ) * geo->npages;
+    for(size_t blk = 0; blk < this->data_blk_nr; ++blk){
+        memcpy( map_buf + offset, blk_page_map[blk], size_);
+        offset += size_;
+    }
+
+    size_ = sizeof( uint8_t ) * this->obj_nr_per_page;
+    for(size_t blk = 0; blk < this->data_blk_nr; ++blk){
+        for(size_t pg = 0; pg < geo->npages; ++pg){
+            memcpy(map_buf + offset, blk_page_obj_map[blk][pg], size_);
+            offset += size_;
+        }
+    }
+
+    memset(map_buf + offset, 0, map_buf_size - offset);
+
+    nvm_vblk_write( bitmap_vblk, map_buf, map_buf_size );
+    OCSSD_DBG_INFO( this, " - write vblk");
+}
+
+void MetaBlkArea::flush_data()
+{
+    OCSSD_DBG_INFO( this, "Flush meta data");
+
+    if( obj_act == 0 ){
+        OCSSD_DBG_INFO(this, " - all data is flushed");
+        return ;
+    }
+
+    OCSSD_DBG_INFO( this, " - obj per page = " << this->obj_nr_per_page );
+    OCSSD_DBG_INFO( this, " - active obj   = " << obj_act );
+
+    memset( (char* )w_buf + obj_act * obj_size, 0, (obj_nr_per_page - obj_act) * obj_size);
+    for(uint8_t obj = obj_act; obj < obj_nr_per_page; ++obj){
+        set_obj_state(blk_act, page_act, obj, MBA_MAP_OBJ_STATE_DEAD);
+//        act_addr_add( 1 );
+//        this->all_dead_obj_nr += 1;
+//        this->blk_dead_obj_nr[ blk_act ] += 1;
+    }
+    OCSSD_DBG_INFO( this, " - set remaining obj DEAD");
+
+    struct nvm_addr nvm_addr_w;
+    nvm_addr_w.ppa = 0;
+    ocssd_bah->get_blk_addr_handle( 0 )->convert_2_nvm_addr(&(meta_blk_addr[ bitmap_blk_nr + blk_act]), &nvm_addr_w);
+    nvm_addr_w.g.pg = page_act;
+    struct nvm_ret ret;
+    nvm_addr_write(dev, &nvm_addr_w, 1 , w_buf, nullptr, NVM_FLAG_PMODE_SNGL, &ret);
+    OCSSD_DBG_INFO( this, " - write pg_act " << page_act );
+
+    act_addr_add( obj_nr_per_page - obj_act );
 }
 
 void MetaBlkArea::print_nat()

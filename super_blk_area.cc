@@ -572,7 +572,7 @@ void OcssdSuperBlock::format_ssd() {
     // write super block
     OCSSD_DBG_INFO( this, " - Write super block");
     this->sb_need_flush  = 1;
-    flush_sb();
+    flush_sb(0);
 
     // write nat
     OCSSD_DBG_INFO( this, " - Write empty NAT table");
@@ -595,7 +595,7 @@ void OcssdSuperBlock::format_ssd() {
         nat_ext->entry[ i ].state = NAT_ENTRY_FREE;
     }
     nat_need_flush = 1;
-    this->flush_nat();
+    this->flush_nat(0);
 
     // write meta data area
     OCSSD_DBG_INFO( this, " - Write Meta Data Obj");
@@ -689,8 +689,27 @@ void OcssdSuperBlock::format_ssd() {
 
 OcssdSuperBlock::~OcssdSuperBlock()
 {
+    OCSSD_DBG_INFO( this, "DELETE OcssdSuperBlock");
+    this->sb_need_flush  = 0;
+    this->nat_need_flush = 1;
     flush();
     // release
+    if( fn_st_blk_idx  != nullptr) free(fn_st_blk_idx );
+    if( fm_st_blk_idx  != nullptr) free(fm_st_blk_idx );
+    if( ext_st_blk_idx != nullptr) free(ext_st_blk_idx);
+    if( fn_blk_nr  != nullptr ) free( fn_blk_nr  );
+    if( fm_blk_nr  != nullptr ) free( fm_blk_nr  );
+    if( ext_blk_nr != nullptr ) free( ext_blk_nr );
+    if( sb_addr != nullptr ) free(sb_addr);
+    if( sb_vblk != nullptr) nvm_vblk_free( sb_vblk );
+    if( sb_meta_buf != nullptr ) free( sb_meta_buf );
+    if( fn_nat_vblk != nullptr  ) nvm_vblk_free( fn_nat_vblk  );
+    if( fm_nat_vblk != nullptr  ) nvm_vblk_free( fm_nat_vblk  );
+    if( ext_nat_vblk != nullptr ) nvm_vblk_free( ext_nat_vblk );
+    if( fn_nat_buf != nullptr  ) free( fn_nat_buf  );
+    if( fm_nat_buf != nullptr  ) free( fm_nat_buf  );
+    if( ext_nat_buf != nullptr ) free( ext_nat_buf );
+    addr_free();
 }
 
 std::string OcssdSuperBlock::txt()
@@ -700,11 +719,11 @@ std::string OcssdSuperBlock::txt()
 
 void OcssdSuperBlock::flush()
 {
-    flush_sb();
-    flush_nat();
+    flush_sb(0);
+    flush_nat(1);
 }
 
-void OcssdSuperBlock::flush_sb()
+void OcssdSuperBlock::flush_sb(int if_erease)
 {
     if( sb_need_flush ){
         sb_need_flush  = 0;
@@ -758,10 +777,17 @@ void OcssdSuperBlock::flush_sb()
     }
 }
 
-void OcssdSuperBlock::flush_nat()
+void OcssdSuperBlock::flush_nat(int if_erease)
 {
     if( nat_need_flush ){
         nat_need_flush  = 0;
+
+        if( if_erease ){
+            nvm_vblk_erase( fn_nat_vblk  );
+            nvm_vblk_erase( fm_nat_vblk  );
+            nvm_vblk_erase( ext_nat_vblk );
+        }
+
         size_t offset = 0;
         size_t size_  = 0;
         blk_addr_handle* bah_0_ = ocssd_bah->get_blk_addr_handle( 0 );

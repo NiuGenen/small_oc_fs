@@ -154,8 +154,8 @@ private:
     int sb_need_flush;
     int nat_need_flush;
     void flush();
-    void flush_sb();
-    void flush_nat();
+    void flush_sb(int if_erease);
+    void flush_nat(int if_erease);
 
     void format_ssd();
     std::string txt();

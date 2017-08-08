@@ -61,6 +61,7 @@ public:
 	void print_bitmap();
 	void print_nat();
 
+	void flush();
 private:
 	struct nvm_dev* dev;
    	const struct nvm_geo* geo;
@@ -98,6 +99,9 @@ private:
 
 	void *w_buf;
 	void *r_buf;
+
+	void flush_bitmap();
+	void flush_data();
 
 	std::string txt();
 };

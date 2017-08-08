@@ -171,5 +171,6 @@ private:
 };
 
 void addr_init(struct nvm_dev* dev, const struct nvm_geo *g);
+void addr_free();
 
 #endif
