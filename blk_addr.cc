@@ -89,6 +89,7 @@ void blk_addr_handle::convert_2_nvm_addr(struct blk_addr *blk_a, struct nvm_addr
 	for (int idx = 0; idx < 4; idx++) {
 		tmp[idx] = (blk_a->__buf & mask_[idx]) >> lmov_[idx];
 	}
+	nvm_a->ppa = 0;
 	nvm_a->g.ch = tmp[format_.ch];
 	nvm_a->g.lun = tmp[format_.lun];
 	nvm_a->g.pl = tmp[format_.pl];
