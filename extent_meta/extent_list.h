@@ -67,6 +67,8 @@ public:
     void putExt(struct extent_descriptor* edes);
     void GC();
     void display();
+
+	std::string txt();
 private:
 	int ch;
 	int ext_size;		// 2,4,8

@@ -428,6 +428,11 @@ void* MetaBlkArea::read_by_obj_id(Nat_Obj_ID_Type obj_id)
     uint16_t pg_idx  = this->nat->entry[ obj_id ].page;
     uint8_t  obj_idx = this->nat->entry[ obj_id ].obj;
 
+    if( blk_idx == blk_act && pg_idx == page_act ){ // still in buf
+        memcpy(ret, (uint8_t * ) w_buf + obj_idx * obj_size, obj_size );
+        return ret;
+    }
+
     struct nvm_addr nvm_addr_;
     nvm_addr_.ppa = 0;
     blk_addr_handle* bah_ = ocssd_bah->get_blk_addr_handle( 0 );

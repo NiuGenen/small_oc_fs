@@ -1,6 +1,7 @@
 #include "extent_list.h"
 //#include "extent_stub.h"
 #include<iostream>
+#include "../dbg_info.h"
 
 extern BlkAddrHandle* occsd_bah;
 extern MetaBlkArea *mba_extent;
@@ -12,13 +13,13 @@ ExtentList::ExtentList(
     int ext_size,
     blk_addr_handle* handler)
 {
-    std::cout << "ExtentList()" << std::endl;
+    OCSSD_DBG_INFO( this, "Constructor ExtentList for ch " << ch);
+
     this->ch = ch;
     this->blk_st = blk_st;
     this->blk_ed = blk_ed;
     this->ext_size = ext_size;
     this->handler = handler;
-    this->blk_nr = handler->get_blk_nr();
 
     init(root_id);
 }
@@ -30,19 +31,22 @@ ExtentList::~ExtentList()
 
 void ExtentList::init(Nat_Obj_ID_Type root_id)
 {
-    std::cout << "init()" << std::endl;
+    OCSSD_DBG_INFO( this, "Init Extent with root " << root_id );
+
     if( root_id == 0 ) {
         head_eobj_id = mba_extent->alloc_obj();
         struct ext_node *eobj = (struct ext_node *) mba_extent->read_by_obj_id(head_eobj_id);
 
         eobj->ecount = 1;
 
-        eobj->mobjs[0].free_vblk_num = blk_nr / ext_size;
-
         eobj->exts[0].addr_st_buf = this->blk_st;
         eobj->exts[0].addr_ed_buf = this->blk_ed;
         eobj->exts[0].free_bitmap = 0;
         eobj->exts[0].junk_bitmap = 0;
+
+        struct blk_addr blk_addr_;
+        blk_addr_.__buf = this->blk_st;
+        eobj->mobjs[0].free_vblk_num = handler->BlkAddrDiff(&blk_addr_, 1 ) / ext_size;
 
         eobj->prev = 0;
         eobj->next = 0;
@@ -317,4 +321,9 @@ void ExtentList::display()
         eobj_id = eobj->next;
         eobj = (struct ext_node*) mba_extent->read_by_obj_id( eobj_id );
     }
+}
+
+std::string ExtentList::txt()
+{
+    return "ExtentList";
 }

@@ -26,6 +26,8 @@ void extent_blk_area_init(
     );
 }
 
+#define Extent_DES_MAX_NR 4
+
 void extent_tree_init(
 		size_t nchs,
 		Nat_Obj_ID_Type* root_id,
@@ -42,7 +44,7 @@ void extent_tree_init(
 				root_id[ch],
 				ch,
 				blk_addr_.__buf, bah->get_highest().__buf,
-				sizeof(struct ext_node),
+				Extent_DES_MAX_NR,
 				bah
 		);
 	}

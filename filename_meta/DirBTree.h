@@ -15,7 +15,7 @@ struct file_descriptor{
     uint32_t fhash;
 };
 
-#define Dir_Node_Half_Degree   166
+#define Dir_Node_Half_Degree   100
 #define Dir_Node_Degree        ( Dir_Node_Half_Degree * 2 + 1 )
 
 // 4KB
